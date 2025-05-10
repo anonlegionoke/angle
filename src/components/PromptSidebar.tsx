@@ -26,10 +26,8 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   isGenerating
 }) => {
   const [prompt, setPrompt] = useState('');
-  // Use empty initial state to prevent hydration errors
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   
-  // Add initial welcome message on client-side only
   useEffect(() => {
     setChatMessages([
       {
@@ -42,10 +40,8 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     ]);
   }, []);
   
-  // Use empty initial state for suggestion prompts
   const [suggestionPrompts, setSuggestionPrompts] = useState<SuggestionPrompt[]>([]);
   
-  // Add initial suggestion prompts on client-side only
   useEffect(() => {
     setSuggestionPrompts([
       { id: '1', text: 'Show the Pythagorean theorem' },
@@ -61,7 +57,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     setPrompt(e.target.value);
   };
 
-  // Auto-scroll to bottom of messages when new messages are added
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -73,7 +68,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 
     const promptText = prompt.trim();
     
-    // Add user message to chat
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       text: promptText,
@@ -83,7 +77,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     };
     setChatMessages(prev => [...prev, userMessage]);
 
-    // Add system processing message
     const processingMessage: ChatMessage = {
       id: (Date.now() + 1).toString(),
       text: "Generating animation based on your prompt...",
@@ -93,14 +86,11 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     };
     setChatMessages(prev => [...prev, processingMessage]);
 
-    // Clear the input
     setPrompt('');
     
-    // Generate new suggestion prompts based on the current prompt
     updateSuggestionPrompts(promptText);
     
     try {
-      // Call the API to generate the animation
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -115,13 +105,10 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         throw new Error(data.error || 'Failed to generate animation');
       }
       
-      // Call the onPromptSubmit callback with the video path
       onPromptSubmit(data.videoPath);
       
-      // Remove the processing message
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
-      // Add success message
       const successMessage: ChatMessage = {
         id: Date.now().toString(),
         text: "Animation generated successfully! You can now edit it in the timeline.",
@@ -134,10 +121,8 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     } catch (error) {
       console.error('Error generating animation:', error);
       
-      // Remove the processing message
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
-      // Add error message
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
         text: `Error: ${error instanceof Error ? error.message : 'Failed to generate animation'}`,
@@ -149,10 +134,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     }
   };
   
-  // Update suggestion prompts based on user input
   const updateSuggestionPrompts = (userPrompt: string) => {
-    // In a real app, these would be generated based on the user's input and context
-    // For now, we'll just rotate through some predefined suggestions
     const newSuggestions = [
       { id: Date.now().toString(), text: 'Add voice narration to this animation' },
       { id: (Date.now() + 1).toString(), text: 'Make the animation slower' },
@@ -163,7 +145,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     setSuggestionPrompts(newSuggestions);
   };
   
-  // Handle clicking a suggestion prompt
   const handleSuggestionClick = (suggestion: SuggestionPrompt) => {
     setPrompt(suggestion.text);
   };
@@ -176,14 +157,14 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   };
 
   return (
-    <div className="w-[300px] flex flex-col bg-editor-panel border-l border-editor-border">
+    <div className="w-full h-full flex flex-col bg-editor-panel">
       {/* Chat messages */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="flex flex-col gap-4">
+      <div className="flex-1 p-4 overflow-y-auto w-full">
+        <div className="flex flex-col gap-4 w-full">
           {chatMessages.map(message => (
             <div 
               key={message.id}
-              className={`p-3 rounded-md max-w-[90%] ${
+              className={`p-3 rounded-md max-w-[90%] break-words ${
                 message.isUser 
                   ? 'bg-editor-highlight self-end' 
                   : 'bg-editor-panel border border-editor-border self-start'
@@ -214,14 +195,14 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 
       {/* Suggestion prompts */}
       {suggestionPrompts.length > 0 && !isGenerating && (
-        <div className="p-2 border-t border-editor-border">
+        <div className="p-2 border-t border-editor-border w-full">
           <div className="text-xs text-gray-400 mb-2">Suggestions:</div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 w-full">
             {suggestionPrompts.map(suggestion => (
               <button
                 key={suggestion.id}
                 onClick={() => handleSuggestionClick(suggestion)}
-                className="text-xs bg-editor-panel border border-editor-border rounded-full px-3 py-1 hover:bg-editor-highlight transition-colors"
+                className="text-xs bg-editor-panel border border-editor-border rounded-full px-3 py-1 hover:bg-editor-highlight transition-colors overflow-hidden text-ellipsis"
               >
                 {suggestion.text}
               </button>
@@ -231,20 +212,20 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       )}
 
       {/* Prompt input */}
-      <div className="p-4 border-t border-editor-border">
-        <div className="flex gap-2">
+      <div className="p-4 border-t border-editor-border w-full">
+        <div className="flex gap-2 w-full">
           <textarea
             value={prompt}
             onChange={handlePromptChange}
             onKeyDown={handleKeyDown}
             placeholder="Enter your prompt here..."
-            className="flex-1 bg-[#2a2a2a] text-white border border-editor-border rounded p-2 resize-none h-[40px]"
+            className="flex-1 bg-[#2a2a2a] text-white border border-editor-border rounded p-2 resize-none h-[40px] min-w-0"
             disabled={isGenerating}
           />
           <button
             onClick={handleSubmit}
             disabled={isGenerating || !prompt.trim()}
-            className={`w-10 h-10 flex items-center justify-center rounded ${
+            className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded ${
               isGenerating || !prompt.trim()
                 ? 'bg-gray-600 cursor-not-allowed'
                 : 'bg-editor-highlight hover:bg-blue-700'

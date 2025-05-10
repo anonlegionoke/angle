@@ -5,11 +5,19 @@ import React, { useState, useEffect, useRef } from 'react';
 interface TimelineProps {
   currentTime: number;
   duration: number;
-  trimStart: number;
-  trimEnd: number;
+  videoTrimStart: number;
+  videoTrimEnd: number;
+  audioTrimStart: number;
+  audioTrimEnd: number;
   onScrub: (time: number) => void;
-  onTrimStart: () => void;
-  onTrimEnd: () => void;
+  onVideoTrimStartChange: (time: number) => void;
+  onVideoTrimEndChange: (time: number) => void;
+  onAudioTrimStartChange: (time: number) => void;
+  onAudioTrimEndChange: (time: number) => void;
+  onApplyTrim: () => void;
+  onExport: () => void;
+  onResetVideoTrim: () => void;
+  onResetAudioTrim: () => void;
 }
 
 interface TimeMarker {
@@ -20,23 +28,39 @@ interface TimeMarker {
 const Timeline: React.FC<TimelineProps> = ({
   currentTime,
   duration,
-  trimStart,
-  trimEnd,
+  videoTrimStart,
+  videoTrimEnd,
+  audioTrimStart,
+  audioTrimEnd,
   onScrub,
-  onTrimStart,
-  onTrimEnd
+  onVideoTrimStartChange,
+  onVideoTrimEndChange,
+  onAudioTrimStartChange,
+  onAudioTrimEndChange,
+  onApplyTrim,
+  onExport,
+  onResetVideoTrim,
+  onResetAudioTrim
 }) => {
-  const [isDragging, setIsDragging] = useState(false);
+  const [draggingState, setDraggingState] = useState({
+    isDragging: false,
+    isVideoTrimStartDragging: false,
+    isVideoTrimEndDragging: false,
+    isAudioTrimStartDragging: false,
+    isAudioTrimEndDragging: false
+  });
+  
   const [zoom, setZoom] = useState(1);
   const [timeMarkers, setTimeMarkers] = useState<TimeMarker[]>([]);
-  const timelineRef = useRef<HTMLDivElement>(null);
   
-  // Generate time markers based on duration and zoom
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const videoTrackRef = useRef<HTMLDivElement>(null);
+  const audioTrackRef = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     if (duration <= 0) return;
     
     const markers: TimeMarker[] = [];
-    // Determine marker interval based on duration and zoom
     const interval = duration <= 30 ? 1 : 
                     duration <= 60 ? 5 : 
                     duration <= 300 ? 15 : 30;
@@ -51,46 +75,163 @@ const Timeline: React.FC<TimelineProps> = ({
     setTimeMarkers(markers);
   }, [duration, zoom]);
 
-  // Format time as MM:SS
   const formatTime = (time: number): string => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Handle timeline click/drag
-  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+  const getTimeFromPosition = (clientX: number, trackRef: React.RefObject<HTMLDivElement | null>): number => {
+    if (!trackRef.current) return 0;
+    
+    const rect = trackRef.current.getBoundingClientRect();
+    const clickPosition = (clientX - rect.left) / rect.width;
+    return Math.max(0, Math.min(duration, clickPosition * duration));
+  };
+
+  const handleTrackMouseDown = (e: React.MouseEvent<HTMLDivElement>, trackRef: React.RefObject<HTMLDivElement | null>) => {
+    if (e.button !== 0) return;
+    
+    setDraggingState({ ...draggingState, isDragging: true });
+    onScrub(getTimeFromPosition(e.clientX, trackRef));
+  };
+
+  const handleVideoStartTrim = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = videoTrackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
     const clickPosition = (e.clientX - rect.left) / rect.width;
-    const newTime = clickPosition * duration;
-    onScrub(newTime);
+    const newTime = Math.max(0, Math.min(videoTrimEnd - 0.5, clickPosition * duration));
+    onVideoTrimStartChange(newTime);
   };
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    setIsDragging(true);
-    handleTimelineClick(e);
+  
+  const handleVideoEndTrim = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = videoTrackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const clickPosition = (e.clientX - rect.left) / rect.width;
+    const newTime = Math.max(videoTrimStart + 0.5, Math.min(duration, clickPosition * duration));
+    onVideoTrimEndChange(newTime);
   };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isDragging) {
-      handleTimelineClick(e);
+  
+  const handleAudioStartTrim = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = audioTrackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const clickPosition = (e.clientX - rect.left) / rect.width;
+    const newTime = Math.max(0, Math.min(audioTrimEnd - 0.5, clickPosition * duration));
+    onAudioTrimStartChange(newTime);
+  };
+  
+  const handleAudioEndTrim = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = audioTrackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const clickPosition = (e.clientX - rect.left) / rect.width;
+    const newTime = Math.max(audioTrimStart + 0.5, Math.min(duration, clickPosition * duration));
+    onAudioTrimEndChange(newTime);
+  };
+  
+  const handleVideoTrackMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (draggingState.isDragging) {
+      const newTime = getTimeFromPosition(e.clientX, videoTrackRef);
+      onScrub(newTime);
     }
   };
-
+  
+  const handleAudioTrackMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (draggingState.isDragging) {
+      const newTime = getTimeFromPosition(e.clientX, audioTrackRef);
+      onScrub(newTime);
+    }
+  };
+  
   const handleMouseUp = () => {
-    setIsDragging(false);
+    setDraggingState({
+      isDragging: false,
+      isVideoTrimStartDragging: false,
+      isVideoTrimEndDragging: false,
+      isAudioTrimStartDragging: false,
+      isAudioTrimEndDragging: false
+    });
   };
-
+  
   const handleMouseLeave = () => {
-    setIsDragging(false);
+    setDraggingState({
+      isDragging: false,
+      isVideoTrimStartDragging: false,
+      isVideoTrimEndDragging: false,
+      isAudioTrimStartDragging: false,
+      isAudioTrimEndDragging: false
+    });
   };
+  
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (draggingState.isVideoTrimStartDragging && videoTrackRef.current) {
+        const rect = videoTrackRef.current.getBoundingClientRect();
+        const clickPosition = (e.clientX - rect.left) / rect.width;
+        const newTime = Math.max(0, Math.min(duration, clickPosition * duration));
+        
+        if (newTime < videoTrimEnd - 0.5) {
+          onVideoTrimStartChange(newTime);
+        }
+      } else if (draggingState.isVideoTrimEndDragging && videoTrackRef.current) {
+        const rect = videoTrackRef.current.getBoundingClientRect();
+        const clickPosition = (e.clientX - rect.left) / rect.width;
+        const newTime = Math.max(0, Math.min(duration, clickPosition * duration));
+        
+        if (newTime > videoTrimStart + 0.5) {
+          onVideoTrimEndChange(newTime);
+        }
+      } else if (draggingState.isAudioTrimStartDragging && audioTrackRef.current) {
+        const rect = audioTrackRef.current.getBoundingClientRect();
+        const clickPosition = (e.clientX - rect.left) / rect.width;
+        const newTime = Math.max(0, Math.min(duration, clickPosition * duration));
+        
+        if (newTime < audioTrimEnd - 0.5) {
+          onAudioTrimStartChange(newTime);
+        }
+      } else if (draggingState.isAudioTrimEndDragging && audioTrackRef.current) {
+        const rect = audioTrackRef.current.getBoundingClientRect();
+        const clickPosition = (e.clientX - rect.left) / rect.width;
+        const newTime = Math.max(0, Math.min(duration, clickPosition * duration));
+        
+        if (newTime > audioTrimStart + 0.5) {
+          onAudioTrimEndChange(newTime);
+        }
+      }
+    };
+    
+    const handleGlobalMouseUp = () => {
+      setDraggingState({
+        isDragging: false,
+        isVideoTrimStartDragging: false,
+        isVideoTrimEndDragging: false,
+        isAudioTrimStartDragging: false,
+        isAudioTrimEndDragging: false
+      });
+    };
+    
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [draggingState, videoTrimStart, videoTrimEnd, audioTrimStart, audioTrimEnd, duration, onVideoTrimStartChange, onVideoTrimEndChange, onAudioTrimStartChange, onAudioTrimEndChange]);
 
-  // Calculate positions
   const scrubberPosition = `${(currentTime / duration) * 100}%`;
-  const clipStartPosition = `${(trimStart / duration) * 100}%`;
-  const clipWidth = `${((trimEnd - trimStart) / duration) * 100}%`;
-
-  // Handle zoom
+  const videoClipStartPosition = `${(videoTrimStart / duration) * 100}%`;
+  const videoClipWidth = `${((videoTrimEnd - videoTrimStart) / duration) * 100}%`;
+  const audioClipStartPosition = `${(audioTrimStart / duration) * 100}%`;
+  const audioClipWidth = `${((audioTrimEnd - audioTrimStart) / duration) * 100}%`;
+  
   const handleZoomIn = () => {
     setZoom(Math.min(zoom * 1.5, 5));
   };
@@ -99,35 +240,65 @@ const Timeline: React.FC<TimelineProps> = ({
     setZoom(Math.max(zoom / 1.5, 1));
   };
 
-  // Apply trim
-  const handleApplyTrim = () => {
-    // In a real app, this would send a request to trim the video
-    // For now, we'll just log it
-    console.log(`Applying trim from ${formatTime(trimStart)} to ${formatTime(trimEnd)}`);
+  const seekToTime = (time: number) => {
+    onScrub(Math.max(0, Math.min(duration, time)));
+  };
+  const seekToVideoStart = () => {
+    seekToTime(videoTrimStart);
+  };
+  
+  const seekToVideoEnd = () => {
+    seekToTime(videoTrimEnd);
+  };
+  
+  const seekToAudioStart = () => {
+    seekToTime(audioTrimStart);
+  };
+  
+  const seekToAudioEnd = () => {
+    seekToTime(audioTrimEnd);
+  };
+  
+  const setVideoStartToCurrent = () => {
+    if (currentTime < videoTrimEnd - 0.5) {
+      onVideoTrimStartChange(currentTime);
+    }
+  };
+  
+  const setVideoEndToCurrent = () => {
+    if (currentTime > videoTrimStart + 0.5) {
+      onVideoTrimEndChange(currentTime);
+    }
+  };
+  
+  const setAudioStartToCurrent = () => {
+    if (currentTime < audioTrimEnd - 0.5) {
+      onAudioTrimStartChange(currentTime);
+    }
+  };
+  
+  const setAudioEndToCurrent = () => {
+    if (currentTime > audioTrimStart + 0.5) {
+      onAudioTrimEndChange(currentTime);
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col p-4 min-h-[200px] bg-editor-bg">
+    <div className="flex-1 flex flex-col p-4 min-h-[300px] bg-editor-bg">
       {/* Timeline controls */}
       <div className="flex justify-between mb-2">
         <div className="flex gap-2">
           <button 
-            onClick={onTrimStart}
-            className="bg-editor-panel text-white border border-editor-border px-3 py-1 rounded hover:bg-editor-highlight"
-          >
-            Set Start
-          </button>
-          <button 
-            onClick={onTrimEnd}
-            className="bg-editor-panel text-white border border-editor-border px-3 py-1 rounded hover:bg-editor-highlight"
-          >
-            Set End
-          </button>
-          <button 
-            onClick={handleApplyTrim}
+            onClick={onApplyTrim}
             className="bg-editor-panel text-white border border-editor-border px-3 py-1 rounded hover:bg-editor-highlight"
           >
             Apply Trim
+          </button>
+          <button 
+            onClick={onExport}
+            className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+          >
+            Export Video
           </button>
         </div>
         <div className="flex items-center gap-4">
@@ -152,7 +323,7 @@ const Timeline: React.FC<TimelineProps> = ({
       </div>
 
       {/* Timeline ruler with markers */}
-      <div className="h-6 relative bg-editor-panel border border-editor-border rounded mb-2 overflow-hidden">
+      <div className="h-12 relative bg-editor-panel border border-editor-border rounded mb-2 overflow-hidden">
         {timeMarkers.map((marker, index) => (
           <div key={index} className="absolute h-full" style={{ left: marker.position }}>
             <div className="h-1/2 border-l border-editor-border"></div>
@@ -169,78 +340,219 @@ const Timeline: React.FC<TimelineProps> = ({
       {/* Timeline tracks */}
       <div 
         ref={timelineRef}
-        className="flex-1 flex flex-col gap-2"
+        className="flex-1 flex flex-col gap-4"
       >
         {/* Video track */}
-        <div className="flex h-12 bg-editor-panel border border-editor-border rounded">
-          <div className="w-[120px] flex items-center justify-center bg-editor-panel border-r border-editor-border text-sm">
-            Video Layer
+        <div className="flex flex-col">
+          <div className="flex items-center mb-1">
+            <div className="w-[120px] flex items-center justify-center text-sm font-medium">
+              Video Layer
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={setVideoStartToCurrent}
+                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+              >
+                Set Start
+              </button>
+              <button 
+                onClick={setVideoEndToCurrent}
+                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+              >
+                Set End
+              </button>
+              <button 
+                onClick={onResetVideoTrim}
+                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                title="Reset video trim points to the full duration"
+              >
+                Reset Trim
+              </button>
+              <div className="border-r border-gray-600 mx-2 h-6"></div>
+              <button 
+                onClick={seekToVideoStart}
+                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight"
+              >
+                Go to Start
+              </button>
+              <button 
+                onClick={seekToVideoEnd}
+                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight"
+              >
+                Go to End
+              </button>
+            </div>
           </div>
-          <div 
-            className="flex-1 relative overflow-hidden"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-          >
-            {/* Scrubber */}
+          <div className="flex h-12 bg-editor-panel border border-editor-border rounded">
+            <div className="w-[120px] flex items-center justify-center bg-editor-panel border-r border-editor-border text-sm">
+              Video
+            </div>
             <div 
-              className="absolute top-0 h-full w-[2px] bg-red-500 z-10"
-              style={{ left: scrubberPosition }}
-            />
-            
-            {/* Video clip */}
-            <div 
-              className="absolute h-[80%] top-[10%] bg-editor-highlight rounded group cursor-move"
-              style={{ 
-                left: clipStartPosition, 
-                width: clipWidth,
-                transform: zoom > 1 ? `scaleX(${zoom})` : 'none',
-                transformOrigin: 'left'
-              }}
+              ref={videoTrackRef}
+              className="flex-1 relative overflow-hidden"
+              onMouseDown={(e) => handleTrackMouseDown(e, videoTrackRef)}
+              onMouseMove={handleVideoTrackMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseLeave}
             >
-              {/* Trim handles */}
-              <div className="absolute left-0 top-0 h-full w-2 bg-white bg-opacity-30 cursor-e-resize hover:bg-opacity-50" />
-              <div className="absolute right-0 top-0 h-full w-2 bg-white bg-opacity-30 cursor-w-resize hover:bg-opacity-50" />
+              {/* Scrubber */}
+              <div 
+                className="absolute top-0 h-full w-[2px] bg-red-500 z-10"
+                style={{ left: scrubberPosition }}
+              />
               
-              {/* Clip label */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-xs font-bold">{formatTime(trimEnd - trimStart)}</span>
+              {/* Video clip */}
+              <div 
+                className="absolute h-[80%] top-[10%] bg-editor-highlight rounded group cursor-move"
+                style={{ 
+                  left: videoClipStartPosition, 
+                  width: videoClipWidth,
+                  transform: zoom > 1 ? `scaleX(${zoom})` : 'none',
+                  transformOrigin: 'left'
+                }}
+              >
+                {/* Professional trim handles like in industry-standard editors */}
+                <div 
+                  className="absolute left-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150" 
+                  onMouseDown={handleVideoStartTrim}
+                  onDoubleClick={seekToVideoStart}
+                  title="Drag to adjust start point | Double-click to seek"
+                >
+                  <div className="h-10 w-1 bg-white"></div>
+                  <div className="absolute -left-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center">
+                    {formatTime(videoTrimStart)}
+                  </div>
+                </div>
+                <div 
+                  className="absolute right-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150" 
+                  onMouseDown={handleVideoEndTrim}
+                  onDoubleClick={seekToVideoEnd}
+                  title="Drag to adjust end point | Double-click to seek"
+                >
+                  <div className="h-10 w-1 bg-white"></div>
+                  <div className="absolute -right-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center">
+                    {formatTime(videoTrimEnd)}
+                  </div>
+                </div>
+                
+                {/* Clip label */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-xs font-bold">{formatTime(videoTrimEnd - videoTrimStart)}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Audio track */}
-        <div className="flex h-12 bg-editor-panel border border-editor-border rounded">
-          <div className="w-[120px] flex items-center justify-center bg-editor-panel border-r border-editor-border text-sm">
-            Audio Layer
+        <div className="flex flex-col">
+          <div className="flex items-center mb-1">
+            <div className="w-[120px] flex items-center justify-center text-sm font-medium">
+              Audio Layer
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={setAudioStartToCurrent}
+                className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+              >
+                Set Start
+              </button>
+              <button 
+                onClick={setAudioEndToCurrent}
+                className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+              >
+                Set End
+              </button>
+              <button 
+                onClick={onResetAudioTrim}
+                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                title="Reset audio trim points to the full duration"
+              >
+                Reset Trim
+              </button>
+              <div className="border-r border-gray-600 mx-2 h-6"></div>
+              <button 
+                onClick={seekToAudioStart}
+                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight"
+              >
+                Go to Start
+              </button>
+              <button 
+                onClick={seekToAudioEnd}
+                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight"
+              >
+                Go to End
+              </button>
+            </div>
           </div>
-          <div className="flex-1 relative overflow-hidden">
-            {/* Audio clip */}
+          <div className="flex h-12 bg-editor-panel border border-editor-border rounded">
+            <div className="w-[120px] flex items-center justify-center bg-editor-panel border-r border-editor-border text-sm">
+              Audio
+            </div>
             <div 
-              className="absolute h-[80%] top-[10%] bg-editor-audio rounded group cursor-move"
-              style={{ 
-                left: clipStartPosition, 
-                width: clipWidth,
-                transform: zoom > 1 ? `scaleX(${zoom})` : 'none',
-                transformOrigin: 'left'
-              }}
+              ref={audioTrackRef}
+              className="flex-1 relative overflow-hidden"
+              onMouseDown={(e) => handleTrackMouseDown(e, audioTrackRef)}
+              onMouseMove={handleAudioTrackMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseLeave}
             >
-              {/* Waveform visualization (simulated) */}
-              <div className="absolute inset-0 flex items-center justify-around px-2">
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="w-[2px] bg-white bg-opacity-30" 
-                    style={{ height: `${30 + (i % 5) * 10}%` }}
-                  />
-                ))}
-              </div>
+              {/* Scrubber */}
+              <div 
+                className="absolute top-0 h-full w-[2px] bg-red-500 z-10"
+                style={{ left: scrubberPosition }}
+              />
               
-              {/* Trim handles */}
-              <div className="absolute left-0 top-0 h-full w-2 bg-white bg-opacity-30 cursor-e-resize hover:bg-opacity-50" />
-              <div className="absolute right-0 top-0 h-full w-2 bg-white bg-opacity-30 cursor-w-resize hover:bg-opacity-50" />
+              {/* Audio clip */}
+              <div 
+                className="absolute h-[80%] top-[10%] bg-editor-audio rounded group cursor-move"
+                style={{ 
+                  left: audioClipStartPosition, 
+                  width: audioClipWidth,
+                  transform: zoom > 1 ? `scaleX(${zoom})` : 'none',
+                  transformOrigin: 'left'
+                }}
+              >
+                {/* Waveform visualization (simulated) */}
+                <div className="absolute inset-0 flex items-center justify-around px-2">
+                  {Array.from({ length: 20 }).map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="w-[2px] bg-white bg-opacity-30" 
+                      style={{ height: `${30 + (i % 5) * 10}%` }}
+                    />
+                  ))}
+                </div>
+                
+                {/* Professional trim handles like in industry-standard editors */}
+                <div 
+                  className="absolute left-0 top-0 h-full w-4 bg-green-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150" 
+                  onMouseDown={handleAudioStartTrim}
+                  onDoubleClick={seekToAudioStart}
+                  title="Drag to adjust audio start point | Double-click to seek"
+                >
+                  <div className="h-10 w-1 bg-white"></div>
+                  <div className="absolute -left-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center">
+                    {formatTime(audioTrimStart)}
+                  </div>
+                </div>
+                <div 
+                  className="absolute right-0 top-0 h-full w-4 bg-green-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150" 
+                  onMouseDown={handleAudioEndTrim}
+                  onDoubleClick={seekToAudioEnd}
+                  title="Drag to adjust audio end point | Double-click to seek"
+                >
+                  <div className="h-10 w-1 bg-white"></div>
+                  <div className="absolute -right-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center">
+                    {formatTime(audioTrimEnd)}
+                  </div>
+                </div>
+                
+                {/* Clip label */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-xs font-bold">{formatTime(audioTrimEnd - audioTrimStart)}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
