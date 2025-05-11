@@ -91,7 +91,8 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     updateSuggestionPrompts(promptText);
     
     try {
-      const response = await fetch('/api/generate', {
+      console.log('Connecting to backend API...');
+      const response = await fetch('http://localhost:8000/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,33 +100,60 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         body: JSON.stringify({ prompt: promptText }),
       });
       
+      console.log('API response received');
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate animation');
+        throw new Error(data.detail || 'Failed to generate animation');
       }
-      
-      onPromptSubmit(data.videoPath);
+
+      if (!data.videoPath) {
+        throw new Error('No video was generated');
+      }
+
+      const videoPath = `http://localhost:8000${data.videoPath}`;
+      console.log('Video path:', videoPath);
+      onPromptSubmit(videoPath);
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
       const successMessage: ChatMessage = {
         id: Date.now().toString(),
-        text: "Animation generated successfully! You can now edit it in the timeline.",
+        text: "Manim animation generated successfully! You can now edit it in the timeline.",
         isUser: false,
         timestamp: new Date(),
         status: 'sent'
       };
       setChatMessages(prev => [...prev, successMessage]);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating animation:', error);
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
+      let errorMsg = 'Failed to generate animation';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMsg = 'Could not connect to the backend server. Please make sure the server is running on port 8000.';
+        } else if (error.message.includes('Manim is not installed')) {
+          errorMsg = 'Manim is not installed on the server. Please install Manim to generate animations.';
+        } else if (error.message.includes('LaTeX')) {
+          errorMsg = 'LaTeX error: Manim requires LaTeX to be installed for rendering text. Please install LaTeX on the server.';
+        } else if (error.message.includes('No video file was generated')) {
+          errorMsg = 'Unable to generate the animation. This might be due to system limitations. Please try a simpler prompt.';
+        } else if (error.message.includes('FileNotFoundError')) {
+          errorMsg = 'There was an issue with file paths when generating the video. Please try again with a different prompt.';
+        } else {
+          errorMsg = error.message;
+        }
+      }
+      
+      onPromptSubmit('');
+      
       const errorMessage: ChatMessage = {
         id: Date.now().toString(),
-        text: `Error: ${error instanceof Error ? error.message : 'Failed to generate animation'}`,
+        text: `Error: ${errorMsg}`,
         isUser: false,
         timestamp: new Date(),
         status: 'error'

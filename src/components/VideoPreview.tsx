@@ -34,7 +34,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   
   useEffect(() => {
     setIsClient(true);
+    console.log('VideoPreview mounted, videoSrc:', videoSrc);
   }, []);
+  
+  useEffect(() => {
+    console.log('VideoSrc changed to:', videoSrc);
+  }, [videoSrc]);
   
   useEffect(() => {
     if (videoRef.current) {
@@ -91,7 +96,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
         {isClient && videoSrc ? (
           <video
             ref={videoRef}
-            className="max-w-full max-h-[40vh]"
+            className="max-w-full max-h-[30vh]"
             src={videoSrc}
             onLoadedMetadata={onMetadataLoaded}
             onTimeUpdate={onTimeUpdate}
@@ -99,9 +104,17 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
             onPause={() => setIsPlaying(false)}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center h-[60vh] w-full bg-editor-panel rounded">
-            <span className="text-xl mb-4">VIDEO</span>
-            <p className="text-gray-400">{isClient && !videoSrc ? 'No video loaded' : 'Loading...'}</p>
+          <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
+            <span className="text-xl mb-4">MANIM VIDEO</span>
+            <p className="text-gray-400">{isClient && !videoSrc ? 'Enter a math prompt to generate a video' : 'Loading...'}</p>
+            <div className="text-sm text-gray-500 mt-4 max-w-md text-center px-4">
+              <p className="mb-2">Generate mathematical animations like 3Blue1Brown using Manim.</p>
+              <p className="mb-4">Try prompts like:</p>
+              <ul className="text-left list-disc pl-8 space-y-1">
+                <li>"Show the Pythagorean theorem"</li>
+                <li>"Visualize sine and cosine on the unit circle"</li>
+              </ul>
+            </div>
           </div>
         )}
       </div>

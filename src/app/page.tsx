@@ -24,7 +24,7 @@ export default function Home() {
   const dividerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setVideoSrc('/sample_math_video.mp4');
+    console.log('App initialized, ready for video generation');
   }, []);
 
   useEffect(() => {
@@ -148,15 +148,34 @@ export default function Home() {
   };
 
   const handlePromptSubmit = async (videoPath: string) => {
+    console.log('Received video path:', videoPath);
     setIsGenerating(true);
     
     try {
+      console.log('Setting video source to:', videoPath);
       setVideoSrc(videoPath);
       
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0;
-        videoRef.current.play();
-      }
+      setTimeout(() => {
+        if (videoRef.current) {
+          console.log('Attempting to play video after delay');
+          videoRef.current.currentTime = 0;
+          
+          const onCanPlay = () => {
+            console.log('Video can play now');
+            videoRef.current?.play()
+              .catch(err => {
+                console.error('Error playing video after canplay event:', err);
+              });
+            videoRef.current?.removeEventListener('canplay', onCanPlay);
+          };
+          
+          videoRef.current.addEventListener('canplay', onCanPlay);
+          
+          videoRef.current.play().catch(err => {
+            console.log('Initial play attempt failed, waiting for canplay event:', err);
+          });
+        }
+      }, 300);
     } catch (error) {
       console.error('Error updating video:', error);
     } finally {
