@@ -111,10 +111,10 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
-      if (data.result) {
+      if (data.code) {
         const codeMessage: ChatMessage = {
           id: Date.now().toString(),
-          text: `\`\`\`python\n${data.result}\n\`\`\``,
+          text: `\`\`\`python\n${data.code}\n\`\`\``,
           isUser: false,
           timestamp: new Date(),
           status: 'sent'
@@ -142,9 +142,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         throw new Error('No video was generated');
       }
 
-      const videoPath = data.videoPath.startsWith('http') 
-        ? data.videoPath 
-        : `http://localhost:8000${data.videoPath}`;
+      const videoPath = data.videoPath;
       
       console.log('Video path:', videoPath);
       onPromptSubmit(videoPath);

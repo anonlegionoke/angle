@@ -40,7 +40,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   
   useEffect(() => {
     console.log('VideoSrc changed to:', videoSrc);
-    // Reset error state when new video is loaded
     setVideoError(null);
   }, [videoSrc]);
   
@@ -138,7 +137,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
+          <div className=" mt-5 flex flex-col items-center justify-center w-full bg-editor-panel rounded">
             <span className="text-xl mb-4">MANIM VIDEO</span>
             <p className="text-gray-400">{isClient && !videoSrc ? 'Enter a math prompt to generate a video' : 'Loading...'}</p>
             <div className="text-sm text-gray-500 mt-4 max-w-md text-center px-4">

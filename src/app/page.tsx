@@ -16,7 +16,7 @@ export default function Home() {
   const [audioTrimStart, setAudioTrimStart] = useState<number>(0);
   const [audioTrimEnd, setAudioTrimEnd] = useState<number>(0);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [isLoopingEnabled, setIsLoopingEnabled] = useState<boolean>(true);
+  const [isLoopingEnabled, setIsLoopingEnabled] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(350);
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
