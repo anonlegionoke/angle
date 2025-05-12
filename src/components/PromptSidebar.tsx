@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import ClientOnly from './ClientOnly';
 
 interface PromptSidebarProps {
   onPromptSubmit: (prompt: string) => void;
   isGenerating: boolean;
+  projectId?: string | null;
 }
 
 interface ChatMessage {
@@ -23,7 +23,8 @@ interface SuggestionPrompt {
 
 const PromptSidebar: React.FC<PromptSidebarProps> = ({
   onPromptSubmit,
-  isGenerating
+  isGenerating,
+  projectId
 }) => {
   const [prompt, setPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -98,7 +99,10 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ prompt: promptText }),
+        body: JSON.stringify({ 
+          prompt: promptText,
+          projectId: projectId || undefined 
+        }),
       });
       
       console.log('API response received');

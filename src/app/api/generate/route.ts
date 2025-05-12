@@ -24,23 +24,49 @@ const getGeminiCode = async (prompt: string) => {
 };
 
 export async function POST(req: NextRequest) {
-
-  const { prompt, cleanAll } = await req.json();
-  const baseDir = path.join(process.cwd(), 'public', 'temp');
+  const { prompt, cleanAll, projectId } = await req.json();
+  
+  // Base directory is always in public/temp
+  const publicTempDir = path.join(process.cwd(), 'public', 'temp');
+  
+  // Determine if we're using a project subdirectory
+  let baseDir: string;
+  
+  if (projectId) {
+    // Use project-specific directory in public/temp
+    baseDir = path.join(publicTempDir, projectId);
+    
+    // Ensure the project directory exists
+    try {
+      await fs.access(baseDir);
+    } catch (err) {
+      // Directory doesn't exist, create it
+      await fs.mkdir(baseDir, { recursive: true });
+    }
+  } else {
+    // Use default temp directory
+    baseDir = publicTempDir;
+  }
 
   /* ── create directory for each request ── */
-  const id       = uuidv4();
+  const id = uuidv4();
   const jobDir = path.join(baseDir, id);
   const pyCacheDir = path.join(jobDir, '__pycache__')
   const mediaDir = path.join(jobDir, 'media');
 
   try {
-
     /* ──  cleanup button  ── */
     if (cleanAll) {
-      await fs.rm(baseDir, { recursive: true, force: true });
+      if (projectId) {
+        // Only clean the specific project directory
+        await fs.rm(baseDir, { recursive: true, force: true });
+      } else {
+        // Clean all temporary files
+        await fs.rm(publicTempDir, { recursive: true, force: true });
+      }
       return NextResponse.json({ message: 'Temporary files cleaned' });
     }
+    
     if (!prompt) return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
 
     await fs.mkdir(mediaDir, { recursive: true });
@@ -67,10 +93,20 @@ export async function POST(req: NextRequest) {
     const finalVideoPath = path.join(jobDir, 'video.mp4');
     await fs.copyFile(rendered, finalVideoPath);
 
+    // Determine relative path for the client
+    let relativeVideoPath;
+    if (projectId) {
+      relativeVideoPath = `/temp/${projectId}/${id}/video.mp4`;
+    } else {
+      relativeVideoPath = `/temp/${id}/video.mp4`;
+    }
+
     return NextResponse.json({
       code,
-      videoPath: `/temp/${id}/video.mp4`,
-      codePath: `/temp/${id}/scene.py`,
+      videoPath: relativeVideoPath,
+      codePath: projectId 
+        ? `/temp/${projectId}/${id}/scene.py` 
+        : `/temp/${id}/scene.py`,
     });
   } catch (err: any) {
     console.error(err);

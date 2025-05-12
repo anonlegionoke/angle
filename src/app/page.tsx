@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import VideoPreview from '@/components/VideoPreview';
 import Timeline from '@/components/Timeline';
 import PromptSidebar from '@/components/PromptSidebar';
+import LandingPage from '@/components/LandingPage';
+import { createProjectDirectory, storeCurrentProject, getCurrentProject } from '@/lib/projectUtils';
 
 export default function Home() {
   const [videoSrc, setVideoSrc] = useState<string>('');
@@ -19,12 +21,20 @@ export default function Home() {
   const [isLoopingEnabled, setIsLoopingEnabled] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(350);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [showEditor, setShowEditor] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dividerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     console.log('App initialized, ready for video generation');
+    
+    const savedProjectId = getCurrentProject();
+    if (savedProjectId) {
+      setCurrentProjectId(savedProjectId);
+      setShowEditor(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -198,10 +208,60 @@ export default function Home() {
     }
   };
 
+  const handleStartProject = async (projectId: string) => {
+    try {
+   
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create project directory');
+      }
+      
+      const data = await response.json();
+      console.log('Project created:', data);
+      
+      setCurrentProjectId(projectId);
+      storeCurrentProject(projectId);
+      setShowEditor(true);
+      
+    } catch (error) {
+      console.error('Error creating project:', error);
+      alert('Failed to create project. Please try again.');
+    }
+  };
+
+  const handleExitProject = async () => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('currentProjectId');
+      }
+      
+      setCurrentProjectId(null);
+      setShowEditor(false);
+      setVideoSrc('');
+  };
+
+  if (!showEditor) {
+    return <LandingPage onStartProject={handleStartProject} />;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-editor-bg text-white font-mono">
-      <header className="p-4 text-center border-b border-editor-border">
+      <header className="p-4 text-center border-b border-editor-border relative">
         <h1 className="text-xl">Angle - AI Video Editor/Generator</h1>
+        {currentProjectId && (
+          <p className="text-sm text-gray-400 mt-1">Project: {currentProjectId}</p>
+        )}
+        
+        <button 
+          onClick={handleExitProject}
+          className="absolute right-4 top-4 bg-red-700 hover:bg-red-600 transition-colors text-white px-3 py-1 rounded text-sm"
+        >
+          Exit Project
+        </button>
       </header>
 
       <main className="flex flex-1 overflow-hidden">
@@ -250,11 +310,12 @@ export default function Home() {
           title="Drag to resize sidebar"
         />
 
-        {/* Sidebar with dynamic width */}
+        {/* Sidebar */}
         <div style={{ width: `${sidebarWidth}px` }} className="h-full border-l border-editor-border">
           <PromptSidebar 
             onPromptSubmit={handlePromptSubmit}
             isGenerating={isGenerating}
+            projectId={currentProjectId}
           />
         </div>
       </main>
