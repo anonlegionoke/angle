@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Angle - Math Animation Generator
 
-## Getting Started
+This application generates math animations using Manim, inspired by 3Blue1Brown.
 
-First, run the development server:
+## Prerequisites
 
-```bash
+- Node.js (v18 or higher)
+- [Manim Community](https://www.manim.community/) installed on your system
+- Python 3.7+
+
+## Installation
+
+1. Clone this repository
+2. Install dependencies:
+   ```
+   npm install
+   ```
+3. Install Manim Community:
+   ```
+   pip install manim
+   ```
+
+## Running the Application
+
+```
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will be available at http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Generate math animations using natural language prompts
+- Real-time code display and video preview
+- API integration with Manim Community for rendering
 
-## Learn More
+## Development
 
-To learn more about Next.js, take a look at the following resources:
+The application consists of:
+- Next.js frontend
+- API route that processes prompts and generates animations
+- Manim integration for creating math visualizations
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+For custom prompts, modify the `/src/app/api/generate/route.ts` file.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Acknowledgements
 
-## Deploy on Vercel
+- [Manim](https://github.com/ManimCommunity/manim) - The Mathematical Animation Engine
+- [Next.js](https://nextjs.org/) - The React Framework for the Web
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern, fast web framework for building APIs with Python
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
+
+## New Feature: Gemini AI Integration for Manim Code Generation
+
+We've added Google's Gemini AI to generate Manim animations from text prompts. This allows for dynamic creation of various mathematical and visual animations without writing code manually.
+
+### Setup Instructions
+
+1. Get a Gemini API key from [Google AI Studio](https://ai.google.dev/)
+2. Create a `.env.local` file in the project root with the following content:
+   ```
+   GEMINI_API_KEY=your_api_key_here
+   ```
+3. Install the required package:
+   ```
+   npm install @google/generative-ai
+   ```
+
+### Usage
+
+Simply enter a prompt describing the animation you want to create, and Gemini will generate the appropriate Manim code which will then be executed to create the animation.
+
+Example prompts:
+- "Create a 3D rotating cube that changes colors"
+- "Show a sine wave forming and then transform into a circle"
+- "Animate the Pythagorean theorem visually"
+
+### Fallback System
+
+If the Gemini API fails or is not configured, the system will automatically fall back to the backend service for animation generation.
+
+### API Quota Management
+
+The application implements smart handling of API quota limits:
+
+1. **Model Fallback**: When the primary model (gemini-1.5-pro) reaches its quota limit, the system automatically tries alternative models (gemini-1.5-flash, gemini-pro) in sequence.
+
+2. **Retry Mechanism**: For temporary quota errors, the system implements exponential backoff retry (3s, 6s, 12s) before trying alternative models.
+
+3. **Backend Service Fallback**: If all Gemini API models are unavailable or quota-limited, the system falls back to the original backend service.
+
+This layered approach ensures maximum reliability while optimizing for the best available AI models.

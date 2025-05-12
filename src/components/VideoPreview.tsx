@@ -31,6 +31,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 }) => {
   const [isClient, setIsClient] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
   
   useEffect(() => {
     setIsClient(true);
@@ -39,6 +40,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   
   useEffect(() => {
     console.log('VideoSrc changed to:', videoSrc);
+    // Reset error state when new video is loaded
+    setVideoError(null);
   }, [videoSrc]);
   
   useEffect(() => {
@@ -74,7 +77,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     if (isPlaying) {
       videoRef.current.pause();
     } else {
-      videoRef.current.play();
+      videoRef.current.play().catch(err => {
+        console.error('Error playing video:', err);
+        setVideoError('Failed to play video. The video might be corrupted or in an unsupported format.');
+      });
     }
     
     setIsPlaying(!isPlaying);
@@ -90,19 +96,47 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     onVolumeChange(newVolume);
   };
   
+  const handleVideoError = () => {
+    console.error('Video error occurred');
+    setVideoError('Failed to load the video. Please check that the file exists and is in a supported format.');
+  };
+  
   return (
     <div className="flex-3 flex flex-col bg-black border-b border-editor-border">
-      <div className="flex justify-center items-center p-4">
+      <div className="flex justify-center items-center p-4 relative">
         {isClient && videoSrc ? (
-          <video
-            ref={videoRef}
-            className="max-w-full max-h-[30vh]"
-            src={videoSrc}
-            onLoadedMetadata={onMetadataLoaded}
-            onTimeUpdate={onTimeUpdate}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-          />
+          <>
+            <video
+              ref={videoRef}
+              className="max-w-full max-h-[30vh]"
+              src={videoSrc}
+              onLoadedMetadata={onMetadataLoaded}
+              onTimeUpdate={onTimeUpdate}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onError={handleVideoError}
+              controls={false}
+              playsInline
+              preload="auto"
+              autoPlay={false}
+            >
+              <source src={videoSrc} type="video/mp4" />
+            </video>
+            {videoError && (
+              <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+                <div className="text-red-400 text-center max-w-md">
+                  <p>⚠️ {videoError}</p>
+                  <p className="text-sm mt-2">Video path: {videoSrc}</p>
+                  <button 
+                    onClick={() => window.open(videoSrc, '_blank')}
+                    className="mt-3 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-white text-sm"
+                  >
+                    Open in new window
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
             <span className="text-xl mb-4">MANIM VIDEO</span>
@@ -113,6 +147,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
               <ul className="text-left list-disc pl-8 space-y-1">
                 <li>"Show the Pythagorean theorem"</li>
                 <li>"Visualize sine and cosine on the unit circle"</li>
+                <li>"Transform a square to a circle"</li>
               </ul>
             </div>
           </div>
@@ -120,7 +155,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       </div>
       
       {/* Custom video controls */}
-      {isClient && videoSrc && (
+      {isClient && videoSrc && !videoError && (
         <div className="flex items-center bg-editor-panel p-2 gap-4">
           <button 
             onClick={togglePlayPause}
@@ -183,6 +218,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
               />
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Debug info in development */}
+      {process.env.NODE_ENV === 'development' && videoSrc && (
+        <div className="p-2 text-xs text-gray-400 bg-gray-800">
+          <p>Video source: {videoSrc}</p>
         </div>
       )}
     </div>

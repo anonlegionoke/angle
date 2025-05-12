@@ -2,5 +2,6 @@
     "editor.tokenColorCustomizations": {
         "comments": "#c3c67d",
         "textMateRules": []
-    }
+    },
+    "git.ignoreLimitWarning": true
 }

@@ -17,7 +17,7 @@ export default function Home() {
   const [audioTrimEnd, setAudioTrimEnd] = useState<number>(0);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isLoopingEnabled, setIsLoopingEnabled] = useState<boolean>(true);
-  const [sidebarWidth, setSidebarWidth] = useState<number>(350); // Default sidebar width
+  const [sidebarWidth, setSidebarWidth] = useState<number>(350);
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -152,8 +152,23 @@ export default function Home() {
     setIsGenerating(true);
     
     try {
-      console.log('Setting video source to:', videoPath);
-      setVideoSrc(videoPath);
+      if (!videoPath) {
+        setVideoSrc('');
+        setIsGenerating(false);
+        return;
+      }
+      
+      const absoluteVideoPath = videoPath.startsWith('http') 
+        ? videoPath 
+        : videoPath.startsWith('/') 
+          ? videoPath 
+          : `/${videoPath}`;
+      
+      const isNonStandardExt = absoluteVideoPath.includes('.nonvid');
+      console.log('Is non-standard extension:', isNonStandardExt);
+      
+      console.log('Setting video source to:', absoluteVideoPath);
+      setVideoSrc(absoluteVideoPath);
       
       setTimeout(() => {
         if (videoRef.current) {

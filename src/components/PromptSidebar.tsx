@@ -27,6 +27,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 }) => {
   const [prompt, setPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isClearing, setIsClearing] = useState(false);
   
   useEffect(() => {
     setChatMessages([
@@ -45,7 +46,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   useEffect(() => {
     setSuggestionPrompts([
       { id: '1', text: 'Show the Pythagorean theorem' },
-      { id: '2', text: 'Visualize sine and cosine on the unit circle' },
+      { id: '2', text: 'Transform a square to a circle' },
       { id: '3', text: 'Demonstrate vector fields' },
       { id: '4', text: 'Explain the chain rule in calculus' }
     ]);
@@ -92,7 +93,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     
     try {
       console.log('Connecting to backend API...');
-      const response = await fetch('http://localhost:8000/api/generate', {
+      const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,18 +105,49 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.detail || 'Failed to generate animation');
+        throw new Error(data.error || data.detail || 'Failed to generate animation');
+      }
+
+      
+      setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
+      
+      if (data.result) {
+        const codeMessage: ChatMessage = {
+          id: Date.now().toString(),
+          text: `\`\`\`python\n${data.result}\n\`\`\``,
+          isUser: false,
+          timestamp: new Date(),
+          status: 'sent'
+        };
+        setChatMessages(prev => [...prev, codeMessage]);
+        
+        if (data.videoPath) {
+          onPromptSubmit(data.videoPath);
+          
+          const videoMessage: ChatMessage = {
+            id: (Date.now() + 2).toString(),
+            text: "Manim animation generated successfully! You can view it in the preview section.",
+            isUser: false,
+            timestamp: new Date(),
+            status: 'sent'
+          };
+          setChatMessages(prev => [...prev, videoMessage]);
+          return;
+        }
+        
+        return;
       }
 
       if (!data.videoPath) {
         throw new Error('No video was generated');
       }
 
-      const videoPath = `http://localhost:8000${data.videoPath}`;
+      const videoPath = data.videoPath.startsWith('http') 
+        ? data.videoPath 
+        : `http://localhost:8000${data.videoPath}`;
+      
       console.log('Video path:', videoPath);
       onPromptSubmit(videoPath);
-      
-      setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
       const successMessage: ChatMessage = {
         id: Date.now().toString(),
@@ -183,9 +215,68 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       handleSubmit();
     }
   };
+  
+  const handleClearVideos = async () => {
+    if (isClearing) return;
+    
+    setIsClearing(true);
+    
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cleanAll: true }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to clear videos');
+      }
+      
+      onPromptSubmit('');
+      
+      const clearMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: "All generated videos have been cleared.",
+        isUser: false,
+        timestamp: new Date(),
+        status: 'sent'
+      };
+      setChatMessages(prev => [...prev, clearMessage]);
+      
+    } catch (error) {
+      console.error('Error clearing videos:', error);
+      
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: `Error: Failed to clear videos. ${error instanceof Error ? error.message : ''}`,
+        isUser: false,
+        timestamp: new Date(),
+        status: 'error'
+      };
+      setChatMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   return (
     <div className="w-full h-full flex flex-col bg-editor-panel">
+      {/* Header with actions */}
+      <div className="p-3 border-b border-editor-border flex justify-between items-center">
+        <h3 className="text-sm font-medium text-white">Manim Generator</h3>
+        <button
+          onClick={handleClearVideos}
+          disabled={isClearing || isGenerating}
+          className={`text-xs px-2 py-1 rounded ${
+            isClearing ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-red-800 hover:bg-red-700 text-white'
+          }`}
+        >
+          {isClearing ? 'Clearing...' : 'Clear Videos'}
+        </button>
+      </div>
+      
       {/* Chat messages */}
       <div className="flex-1 p-4 overflow-y-auto w-full">
         <div className="flex flex-col gap-4 w-full">
@@ -198,72 +289,82 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                   : 'bg-editor-panel border border-editor-border self-start'
               } ${
                 message.status === 'sending' ? 'opacity-70' : ''
-              } ${
-                message.status === 'error' ? 'border-red-500' : ''
               }`}
             >
-              {message.text}
-              {message.status === 'sending' && (
-                <div className="mt-1 text-xs opacity-70 flex items-center">
-                  <span className="animate-pulse mr-1">●</span> Processing...
-                </div>
-              )}
-              {message.timestamp && (
-                <ClientOnly>
-                  <div className="mt-1 text-xs opacity-50 text-right">
+              <div className="text-sm text-white/80 mb-1">
+                {message.isUser ? 'You' : 'AI'}
+                {message.timestamp && (
+                  <span className="text-xs ml-2 text-white/50">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                )}
+              </div>
+              <div className={message.status === 'error' ? 'text-red-400' : ''}>
+                {message.status === 'sending' ? (
+                  <div className="flex items-center">
+                    <span>{message.text}</span>
+                    <div className="ml-2 flex gap-1">
+                      <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
+                      <div className="w-2 h-2 bg-white/70 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
+                    </div>
                   </div>
-                </ClientOnly>
-              )}
+                ) : (
+                  message.text.startsWith('```') ? (
+                    <pre className="bg-gray-800 p-3 rounded overflow-x-auto">
+                      <code>{message.text.replace(/```python\n|```/g, '')}</code>
+                    </pre>
+                  ) : (
+                    message.text
+                  )
+                )}
+              </div>
             </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
       </div>
-
+      
       {/* Suggestion prompts */}
-      {suggestionPrompts.length > 0 && !isGenerating && (
-        <div className="p-2 border-t border-editor-border w-full">
-          <div className="text-xs text-gray-400 mb-2">Suggestions:</div>
-          <div className="flex flex-wrap gap-2 w-full">
-            {suggestionPrompts.map(suggestion => (
-              <button
-                key={suggestion.id}
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="text-xs bg-editor-panel border border-editor-border rounded-full px-3 py-1 hover:bg-editor-highlight transition-colors overflow-hidden text-ellipsis"
-              >
-                {suggestion.text}
-              </button>
-            ))}
-          </div>
+      <div className="p-4 border-t border-editor-border">
+        <p className="text-xs text-gray-400 mb-2">Suggestions:</p>
+        <div className="flex flex-wrap gap-2">
+          {suggestionPrompts.map(suggestion => (
+            <button
+              key={suggestion.id}
+              onClick={() => handleSuggestionClick(suggestion)}
+              className="text-xs bg-editor-border hover:bg-editor-highlight transition-colors px-3 py-1 rounded-full text-gray-300"
+            >
+              {suggestion.text}
+            </button>
+          ))}
         </div>
-      )}
-
-      {/* Prompt input */}
-      <div className="p-4 border-t border-editor-border w-full">
-        <div className="flex gap-2 w-full">
+      </div>
+      
+      {/* Input field */}
+      <div className="p-4 border-t border-editor-border">
+        <div className="relative">
           <textarea
             value={prompt}
             onChange={handlePromptChange}
             onKeyDown={handleKeyDown}
-            placeholder="Enter your prompt here..."
-            className="flex-1 bg-[#2a2a2a] text-white border border-editor-border rounded p-2 resize-none h-[40px] min-w-0"
+            className="w-full bg-editor-bg border border-editor-border rounded p-3 pr-12 text-white resize-none focus:outline-none focus:border-editor-highlight"
+            placeholder="Describe the math animation you want to create..."
+            rows={3}
             disabled={isGenerating}
           />
           <button
             onClick={handleSubmit}
-            disabled={isGenerating || !prompt.trim()}
-            className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded ${
-              isGenerating || !prompt.trim()
-                ? 'bg-gray-600 cursor-not-allowed'
-                : 'bg-editor-highlight hover:bg-blue-700'
+            disabled={!prompt.trim() || isGenerating}
+            className={`absolute bottom-3 right-3 rounded-full w-8 h-8 flex items-center justify-center transition-colors ${
+              !prompt.trim() || isGenerating
+                ? 'bg-editor-border text-gray-500 cursor-not-allowed'
+                : 'bg-editor-highlight text-white hover:bg-blue-700'
             }`}
           >
-            {isGenerating ? (
-              <span className="animate-spin">↻</span>
-            ) : (
-              '→'
-            )}
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
+            </svg>
           </button>
         </div>
       </div>
