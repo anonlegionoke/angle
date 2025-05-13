@@ -22,4 +22,26 @@ export function getCurrentProject(): string | null {
     return localStorage.getItem('currentProjectId');
   }
   return null;
+}
+
+export interface Project {
+  id: string;
+  createdAt: string;
+  timestamp: string;
+}
+
+export async function getAllProjects(): Promise<Project[]> {
+  try {
+    const response = await fetch('/api/projects');
+    if (!response.ok) {
+      console.error('Failed to fetch projects:', response.statusText);
+      return [];
+    }
+    
+    const data = await response.json();
+    return data.projects || [];
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    return [];
+  }
 } 

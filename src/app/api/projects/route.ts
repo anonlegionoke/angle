@@ -37,6 +37,39 @@ export async function POST(request: Request) {
   }
 }
 
+export async function GET() {
+  try {
+    const baseDir = path.join(process.cwd(), 'public', 'temp');
+    
+    if (!fs.existsSync(baseDir)) {
+      fs.mkdirSync(baseDir, { recursive: true });
+      return NextResponse.json({ projects: [] });
+    }
+    
+    const items = fs.readdirSync(baseDir, { withFileTypes: true });
+    
+    const projectDirs = items
+      .filter(item => item.isDirectory() && item.name.startsWith('project_'))
+      .map(dir => {
+        const stats = fs.statSync(path.join(baseDir, dir.name));
+        return {
+          id: dir.name,
+          createdAt: stats.birthtime.toISOString(),
+          timestamp: dir.name.split('_')[1] || stats.birthtime.getTime().toString()
+        };
+      })
+      .sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
+    
+    return NextResponse.json({ projects: projectDirs });
+  } catch (error) {
+    console.error('Error retrieving projects:', error);
+    return NextResponse.json(
+      { error: 'Failed to retrieve projects', projects: [] },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const url = new URL(request.url);

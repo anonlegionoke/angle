@@ -5,7 +5,7 @@ import VideoPreview from '@/components/VideoPreview';
 import Timeline from '@/components/Timeline';
 import PromptSidebar from '@/components/PromptSidebar';
 import LandingPage from '@/components/LandingPage';
-import { createProjectDirectory, storeCurrentProject, getCurrentProject } from '@/lib/projectUtils';
+import { createProjectDirectory, storeCurrentProject, getCurrentProject, Project, getAllProjects } from '@/lib/projectUtils';
 
 const DEFAULT_SIDEBAR_WIDTH = 350;
 const SIDEBAR_WIDTH_KEY = 'angle_sidebar_width';
@@ -227,27 +227,34 @@ export default function Home() {
 
   const handleStartProject = async (projectId: string) => {
     try {
-   
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId })
-      });
+      const projects = await getAllProjects();
       
-      if (!response.ok) {
-        throw new Error('Failed to create project directory');
+      const isExistingProject = projects.some((project: Project) => project.id === projectId);
+      
+      if (!isExistingProject) {
+        const createResponse = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId })
+        });
+        
+        if (!createResponse.ok) {
+          throw new Error('Failed to create project directory');
+        }
+        
+        const createData = await createResponse.json();
+        console.log('New project created:', createData);
+      } else {
+        console.log('Loading existing project:', projectId);
       }
-      
-      const data = await response.json();
-      console.log('Project created:', data);
       
       setCurrentProjectId(projectId);
       storeCurrentProject(projectId);
       setShowEditor(true);
       
     } catch (error) {
-      console.error('Error creating project:', error);
-      alert('Failed to create project. Please try again.');
+      console.error('Error handling project:', error);
+      alert('Failed to handle project. Please try again.');
     }
   };
 
