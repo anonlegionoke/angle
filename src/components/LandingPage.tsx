@@ -38,7 +38,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
         <button
           onClick={handleStartProject}
           disabled={isLoading}
-          className="bg-white text-black text-editor-bg py-3 px-8 rounded-lg text-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-white text-black text-editor-bg py-3 px-8 rounded-lg text-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           {isLoading ? 'Creating Project...' : 'Start Project'}
         </button>
