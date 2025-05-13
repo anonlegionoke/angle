@@ -7,6 +7,9 @@ import PromptSidebar from '@/components/PromptSidebar';
 import LandingPage from '@/components/LandingPage';
 import { createProjectDirectory, storeCurrentProject, getCurrentProject } from '@/lib/projectUtils';
 
+const DEFAULT_SIDEBAR_WIDTH = 350;
+const SIDEBAR_WIDTH_KEY = 'angle_sidebar_width';
+
 export default function Home() {
   const [videoSrc, setVideoSrc] = useState<string>('');
   const [duration, setDuration] = useState<number>(0);
@@ -19,7 +22,7 @@ export default function Home() {
   const [audioTrimEnd, setAudioTrimEnd] = useState<number>(0);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isLoopingEnabled, setIsLoopingEnabled] = useState<boolean>(false);
-  const [sidebarWidth, setSidebarWidth] = useState<number>(350);
+  const [sidebarWidth, setSidebarWidth] = useState<number>(DEFAULT_SIDEBAR_WIDTH);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState<boolean>(false);
@@ -34,6 +37,16 @@ export default function Home() {
     if (savedProjectId) {
       setCurrentProjectId(savedProjectId);
       setShowEditor(true);
+    }
+    
+    if (typeof window !== 'undefined') {
+      const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+      if (savedWidth) {
+        const parsedWidth = parseInt(savedWidth, 10);
+        if (!isNaN(parsedWidth) && parsedWidth >= 250 && parsedWidth <= 600) {
+          setSidebarWidth(parsedWidth);
+        }
+      }
     }
   }, []);
 
@@ -61,6 +74,10 @@ export default function Home() {
     
     const handleMouseUp = () => {
       setIsDragging(false);
+      
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
+      }
     };
     
     if (isDragging) {
@@ -72,7 +89,7 @@ export default function Home() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, sidebarWidth]);
   
   const handleDividerMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
