@@ -10,6 +10,8 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [isClearing, setIsClearing] = useState(false);
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
     };
 
     fetchProjects();
-  }, []);
+  }, [isClearing]);
 
   const handleStartProject = async () => {
     setIsLoading(true);
@@ -72,9 +74,34 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
     }
   };
 
+  const handleClearVideos = async () => {
+    if (isClearing) return;
+    
+    setIsClearing(true);
+    
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cleanAll: true }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to clear videos');
+      }      
+      
+    } catch (error) {
+      console.error('Error clearing videos:', error);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-editor-bg text-white">
-      <div className="text-center mb-4">
+    <div className="min-h-screen flex flex-col items-center bg-editor-bg text-white overflow-y-auto max-h-screen pt-4">
+      <div className="text-center my-4">
         <h1 className="text-5xl font-bold mb-6">Angle</h1>
         <p className="text-xl mb-10">AI-Powered Video Editor & Generator</p>
         
@@ -118,14 +145,26 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
               <p>Loading projects...</p>
             </div>
           ) : projects.length === 0 ? (
-            <div className="text-center py-12 bg-gray-800 rounded-lg border border-gray-700">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="text-center py-7 bg-gray-800 rounded-lg border border-gray-700">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-14 w-14 mx-auto text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
               <p className="text-gray-400 text-lg">No existing projects</p>
               <p className="text-gray-500 mt-2">Create your first project to get started!</p>
             </div>
           ) : (
+          <>
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={handleClearVideos}
+                disabled={isClearing}
+                className={`text-xs px-2 py-1 rounded ${
+                  isClearing ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-red-800 hover:bg-red-700 text-white'
+                }`}
+              >
+                {isClearing ? 'Clearing...' : 'Clear all projects'}
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {projects.map(project => (
                 <div 
@@ -154,6 +193,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
                 </div>
               ))}
             </div>
+          </>
           )}
         </div>
       </div>

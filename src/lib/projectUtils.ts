@@ -44,4 +44,33 @@ export async function getAllProjects(): Promise<Project[]> {
     console.error('Error fetching projects:', error);
     return [];
   }
+}
+
+export async function getLatestProjectVideo(projectId: string): Promise<string | null> {
+  try {
+    const response = await fetch(`/api/log?projectId=${projectId}`);
+    if (!response.ok) {
+      console.error('Failed to fetch project logs:', response.statusText);
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (!data.logs || data.logs.length === 0) {
+      return null;
+    }
+    
+    for (let i = data.logs.length - 1; i >= 0; i--) {
+      const log = data.logs[i];
+      if (log.llmResponse && log.llmResponse.videoPath) {
+        const videoPath = log.llmResponse.videoPath;
+        return videoPath.startsWith('/') ? videoPath : `/${videoPath}`;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching latest project video:', error);
+    return null;
+  }
 } 

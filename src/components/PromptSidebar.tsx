@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { logChatMessage } from '../utils/logger';
 
 interface PromptSidebarProps {
   onPromptSubmit: (prompt: string) => void;
@@ -28,19 +29,98 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 }) => {
   const [prompt, setPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [isClearing, setIsClearing] = useState(false);
   
   useEffect(() => {
-    setChatMessages([
-      {
-        id: '1',
-        text: "I'll help you create 3Blue1Brown-style math animations. What would you like to visualize?",
-        isUser: false,
-        timestamp: new Date(),
-        status: 'sent'
+    const welcomeMessage: ChatMessage = {
+      id: '1',
+      text: "I'll help you create 3Blue1Brown-style math animations. What would you like to visualize?",
+      isUser: false,
+      timestamp: new Date(),
+      status: 'sent'
+    };
+    
+    if (!projectId) {
+      setChatMessages([welcomeMessage]);
+      return;
+    }
+    
+    const fetchChatLogs = async () => {
+      try {
+        const response = await fetch(`/api/log?projectId=${projectId}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch chat logs');
+        }
+        
+        const data = await response.json();
+        
+        if (data.logs && data.logs.length > 0) {
+          const messages: ChatMessage[] = [];
+          
+          messages.push(welcomeMessage);
+          
+          data.logs.forEach((log: any) => {
+            messages.push({
+              id: `user-${log.timestamp}`,
+              text: log.userMessage,
+              isUser: true,
+              timestamp: new Date(log.timestamp),
+              status: 'sent' as 'sent'
+            });
+            
+            if (log.llmResponse) {
+              if (log.llmResponse.error) {
+                messages.push({
+                  id: `error-${log.timestamp}`,
+                  text: `Error: ${log.llmResponse.error}`,
+                  isUser: false,
+                  timestamp: new Date(log.timestamp),
+                  status: 'error' as 'error'
+                });
+              } 
+              else if (log.llmResponse.code) {
+                messages.push({
+                  id: `code-${log.timestamp}`,
+                  text: `\`\`\`python\n${log.llmResponse.code}\n\`\`\``,
+                  isUser: false,
+                  timestamp: new Date(log.timestamp),
+                  status: 'sent' as 'sent'
+                });
+                
+                if (log.llmResponse.videoPath) {
+                  messages.push({
+                    id: `video-${log.timestamp}`,
+                    text: "Manim animation generated successfully! You can view it in the preview section.",
+                    isUser: false,
+                    timestamp: new Date(log.timestamp),
+                    status: 'sent' as 'sent'
+                  });
+                }
+              } 
+              else if (log.llmResponse.videoPath) {
+                messages.push({
+                  id: `success-${log.timestamp}`,
+                  text: "Manim animation generated successfully! You can now edit it in the timeline.",
+                  isUser: false,
+                  timestamp: new Date(log.timestamp),
+                  status: 'sent' as 'sent'
+                });
+              }
+            }
+          });
+          
+          setChatMessages(messages);
+        } else {
+          setChatMessages([welcomeMessage]);
+        }
+      } catch (error) {
+        console.error('Error fetching chat logs:', error);
+        setChatMessages([welcomeMessage]);
       }
-    ]);
-  }, []);
+    };
+    
+    fetchChatLogs();
+  }, [projectId]);
   
   const [suggestionPrompts, setSuggestionPrompts] = useState<SuggestionPrompt[]>([]);
   
@@ -111,6 +191,8 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       if (!response.ok) {
         throw new Error(data.error || data.detail || 'Failed to generate animation');
       }
+      
+      await logChatMessage(promptText, data, projectId);
 
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
@@ -162,6 +244,12 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       
     } catch (error: any) {
       console.error('Error generating animation:', error);
+      
+      try {
+        await logChatMessage(promptText, { error: error.message }, projectId);
+      } catch (logError) {
+        console.error('Error logging chat message:', logError);
+      }
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
@@ -217,66 +305,12 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       handleSubmit();
     }
   };
-  
-  const handleClearVideos = async () => {
-    if (isClearing) return;
-    
-    setIsClearing(true);
-    
-    try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ cleanAll: true }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to clear videos');
-      }
-      
-      onPromptSubmit('');
-      
-      const clearMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: "All generated videos have been cleared.",
-        isUser: false,
-        timestamp: new Date(),
-        status: 'sent'
-      };
-      setChatMessages(prev => [...prev, clearMessage]);
-      
-    } catch (error) {
-      console.error('Error clearing videos:', error);
-      
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: `Error: Failed to clear videos. ${error instanceof Error ? error.message : ''}`,
-        isUser: false,
-        timestamp: new Date(),
-        status: 'error'
-      };
-      setChatMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsClearing(false);
-    }
-  };
 
   return (
     <div className="w-full h-full flex flex-col bg-editor-panel">
       {/* Header with actions */}
       <div className="p-3 border-b border-editor-border flex justify-between items-center">
         <h3 className="text-sm font-medium text-white">Manim Generator</h3>
-        <button
-          onClick={handleClearVideos}
-          disabled={isClearing || isGenerating}
-          className={`text-xs px-2 py-1 rounded ${
-            isClearing ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-red-800 hover:bg-red-700 text-white'
-          }`}
-        >
-          {isClearing ? 'Clearing...' : 'Clear Videos'}
-        </button>
       </div>
       
       {/* Chat messages */}

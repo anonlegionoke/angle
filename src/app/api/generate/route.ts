@@ -126,15 +126,16 @@ export async function POST(req: NextRequest) {
   try {
     /* ──  cleanup button  ── */
     if (cleanAll) {
+
       if (projectId) {
         await fs.rm(baseDir, { recursive: true, force: true });
         if (projectId && projectContexts[projectId]) {
           delete projectContexts[projectId];
-          await saveProjectContexts();
         }
       } else {
         await fs.rm(publicTempDir, { recursive: true, force: true });
       }
+      await fs.rm(contextFilePath, { recursive: true, force: true });
       return NextResponse.json({ message: 'Temporary files cleaned' });
     }
     

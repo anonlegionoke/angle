@@ -5,7 +5,7 @@ import VideoPreview from '@/components/VideoPreview';
 import Timeline from '@/components/Timeline';
 import PromptSidebar from '@/components/PromptSidebar';
 import LandingPage from '@/components/LandingPage';
-import { createProjectDirectory, storeCurrentProject, getCurrentProject, Project, getAllProjects } from '@/lib/projectUtils';
+import { storeCurrentProject, getCurrentProject, Project, getAllProjects, getLatestProjectVideo } from '@/lib/projectUtils';
 
 const DEFAULT_SIDEBAR_WIDTH = 350;
 const SIDEBAR_WIDTH_KEY = 'angle_sidebar_width';
@@ -246,6 +246,14 @@ export default function Home() {
         console.log('New project created:', createData);
       } else {
         console.log('Loading existing project:', projectId);
+        
+        const latestVideo = await getLatestProjectVideo(projectId);
+        if (latestVideo) {
+          console.log('Found latest video for project:', latestVideo);
+          setVideoSrc(latestVideo);
+        } else {
+          console.log('No previous videos found for this project');
+        }
       }
       
       setCurrentProjectId(projectId);
