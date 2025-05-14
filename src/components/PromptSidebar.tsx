@@ -309,9 +309,9 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   return (
     <div className="w-full h-full flex flex-col bg-editor-panel">
       {/* Header with actions */}
-      <div className="p-3 border-b border-editor-border flex justify-between items-center">
+      {/* <div className="p-3 border-b border-editor-border flex justify-between items-center">
         <h3 className="text-sm font-medium text-white">Manim Generator</h3>
-      </div>
+      </div> */}
       
       {/* Chat messages */}
       <div className="flex-1 p-4 overflow-y-auto w-full">
