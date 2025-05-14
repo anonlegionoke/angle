@@ -10,30 +10,53 @@ const execCommand = (cmd: string) =>
     exec(cmd, (err, out, errOut) => (err ? rej(err) : (errOut && console.warn(errOut), res())))
   );
 
-const projectContexts: Record<string, { prompts: string[], code: string }> = {};
-
-const contextFilePath = path.join(process.cwd(), 'data', 'projectContexts.json');
-
-async function loadProjectContexts() {
+async function getProjectChatLog(projectId: string) {
   try {
-    await fs.mkdir(path.dirname(contextFilePath), { recursive: true });
-    const data = await fs.readFile(contextFilePath, 'utf-8');
-    Object.assign(projectContexts, JSON.parse(data));
+    const tempDir = path.join(process.cwd(), 'public', 'temp');
+    const logsDir = path.join(tempDir, projectId, 'logs');
+    
+    try {
+      await fs.access(logsDir);
+    } catch (error) {
+      return { prompts: [], code: '' };
+    }
+    
+    const files = await fs.readdir(logsDir);
+    const logFiles = files.filter(file => file.startsWith('chat-log-') && file.endsWith('.json'));
+    
+    if (logFiles.length === 0) {
+      return { prompts: [], code: '' };
+    }
+    
+    logFiles.sort().reverse();
+    
+    const latestLogFile = logFiles[0];
+    const logFilePath = path.join(logsDir, latestLogFile);
+    
+    const fileContent = await fs.readFile(logFilePath, 'utf-8');
+    const logs: { userMessage: string; llmResponse?: { code?: string } }[] = JSON.parse(fileContent);
+    
+    if (!logs || logs.length === 0) {
+      return { prompts: [], code: '' };
+    }
+    
+    const prompts = logs.map((log: { userMessage: string }) => log.userMessage);
+    
+    let latestCode = '';
+    for (let i = logs.length - 1; i >= 0; i--) {
+      const response = logs[i].llmResponse;
+      if (response && response.code) {
+        latestCode = response.code;
+        break;
+      }
+    }
+    
+    return { prompts, code: latestCode };
   } catch (error) {
-    console.log('No existing context file found, starting fresh.');
+    console.error('Error fetching project chat log:', error);
+    return { prompts: [], code: '' };
   }
 }
-
-async function saveProjectContexts() {
-  try {
-    await fs.mkdir(path.dirname(contextFilePath), { recursive: true });
-    await fs.writeFile(contextFilePath, JSON.stringify(projectContexts, null, 2));
-  } catch (error) {
-    console.error('Failed to save project contexts:', error);
-  }
-}
-
-loadProjectContexts().catch(console.error);
 
 const sharedPromptRequirements = `Important rules:
 1. Keep the same scene name (GeneratedScene)
@@ -85,9 +108,13 @@ const getGeminiCode = async (prompt: string, projectId?: string) => {
 
   let fullPrompt: string;
   
-  if (projectId && projectContexts[projectId]) {
-    const context = projectContexts[projectId];
-    fullPrompt = extendAnimationPrompt(prompt, context.prompts, context.code);
+  if (projectId) {
+    const context = await getProjectChatLog(projectId);
+    if (context.prompts.length > 0 && context.code) {
+      fullPrompt = extendAnimationPrompt(prompt, context.prompts, context.code);
+    } else {
+      fullPrompt = newAnimationPrompt(prompt);
+    }
   } else {
     fullPrompt = newAnimationPrompt(prompt);
   }
@@ -126,16 +153,11 @@ export async function POST(req: NextRequest) {
   try {
     /* ──  cleanup button  ── */
     if (cleanAll) {
-
       if (projectId) {
         await fs.rm(baseDir, { recursive: true, force: true });
-        if (projectId && projectContexts[projectId]) {
-          delete projectContexts[projectId];
-        }
       } else {
         await fs.rm(publicTempDir, { recursive: true, force: true });
       }
-      await fs.rm(contextFilePath, { recursive: true, force: true });
       return NextResponse.json({ message: 'Temporary files cleaned' });
     }
     
@@ -146,16 +168,6 @@ export async function POST(req: NextRequest) {
     /* ── generate code ── */
     const sceneName = 'GeneratedScene';
     const code = await getGeminiCode(prompt, projectId);
-
-    /* -- update context -- */
-    if (projectId) {
-      if (!projectContexts[projectId]) {
-        projectContexts[projectId] = { prompts: [], code: '' };
-      }
-      projectContexts[projectId].prompts.push(prompt);
-      projectContexts[projectId].code = code;
-      await saveProjectContexts();
-    }
 
     const pyPath = path.join(jobDir, 'scene.py');
     await fs.writeFile(pyPath, code);
@@ -182,14 +194,23 @@ export async function POST(req: NextRequest) {
       relativeVideoPath = `/temp/${id}/video.mp4`;
     }
 
+    let hasContext = false;
+    let promptHistory: string[] = [];
+    
+    if (projectId) {
+      const chatLog = await getProjectChatLog(projectId);
+      hasContext = chatLog.prompts.length > 0;
+      promptHistory = chatLog.prompts;
+    }
+    
     return NextResponse.json({
       code,
       videoPath: relativeVideoPath,
       codePath: projectId 
         ? `/temp/${projectId}/${id}/scene.py` 
         : `/temp/${id}/scene.py`,
-      hasContext: !!(projectId && projectContexts[projectId]?.prompts.length > 0),
-      promptHistory: projectId ? projectContexts[projectId]?.prompts || [] : []
+      hasContext,
+      promptHistory
     });
   } catch (err: any) {
     console.error(err);
