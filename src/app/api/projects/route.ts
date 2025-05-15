@@ -1,37 +1,47 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
+import { createClient } from '@/utils/supabase/server';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
     const { projectId } = await request.json();
     
-    if (!projectId) {
+    if (projectId) {
+      const { error: createError } = await supabase
+      .from('projects')
+      .insert({project_id: projectId})
+      .select()
+      .single();
+    
+    if (createError) {
+      console.error('Error creating project:', createError);
       return NextResponse.json(
-        { error: 'Project ID is required' },
-        { status: 400 }
+        { error: 'Failed to create project' },
+        { status: 500 }
       );
     }
-
+    } 
+    
     const baseDir = path.join(process.cwd(), 'public', 'temp');
     const projectDir = path.join(baseDir, projectId);
     
-    if (!fs.existsSync(baseDir)) {
-      fs.mkdirSync(baseDir, { recursive: true });
-    }
-    
-    if (!fs.existsSync(projectDir)) {
-      fs.mkdirSync(projectDir, { recursive: true });
+    try {
+      await fs.mkdir(baseDir, { recursive: true });
+      await fs.mkdir(projectDir, { recursive: true });
+    } catch (dirError) {
+      console.error('Error creating project directory:', dirError);
     }
     
     return NextResponse.json({ 
       success: true, 
-      projectPath: projectDir 
+      projectId
     });
   } catch (error) {
-    console.error('Error creating project directory:', error);
+    console.error('Error handling project:', error);
     return NextResponse.json(
-      { error: 'Failed to create project directory' },
+      { error: 'Failed to process project request' },
       { status: 500 }
     );
   }
@@ -39,28 +49,33 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const baseDir = path.join(process.cwd(), 'public', 'temp');
+    const supabase = await createClient();
     
-    if (!fs.existsSync(baseDir)) {
-      fs.mkdirSync(baseDir, { recursive: true });
-      return NextResponse.json({ projects: [] });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select('project_id, created_at, updated_at')
+      .eq('user_id', user?.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching projects:', error);
+      return NextResponse.json(
+        { error: 'Failed to retrieve projects', projects: [] },
+        { status: 500 }
+      );
     }
     
-    const items = fs.readdirSync(baseDir, { withFileTypes: true });
+    const formattedProjects = projects.map(project => ({
+      id: project.project_id,
+      createdAt: project.created_at,
+      updatedAt: project.updated_at
+    }));
     
-    const projectDirs = items
-      .filter(item => item.isDirectory() && item.name.startsWith('project_'))
-      .map(dir => {
-        const stats = fs.statSync(path.join(baseDir, dir.name));
-        return {
-          id: dir.name,
-          createdAt: stats.birthtime.toISOString(),
-          timestamp: dir.name.split('_')[1] || stats.birthtime.getTime().toString()
-        };
-      })
-      .sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
-    
-    return NextResponse.json({ projects: projectDirs });
+    return NextResponse.json({ projects: formattedProjects });
   } catch (error) {
     console.error('Error retrieving projects:', error);
     return NextResponse.json(
@@ -72,31 +87,70 @@ export async function GET() {
 
 export async function DELETE(request: Request) {
   try {
-    const url = new URL(request.url);
-    const projectId = url.searchParams.get('projectId');
+    const supabase = await createClient();
+    const { user_id } = await request.json(); 
     
-    if (!projectId) {
+    if (!user_id) {
       return NextResponse.json(
-        { error: 'Project ID is required' },
+        { error: 'User ID is required' },
         { status: 400 }
       );
     }
     
-    const baseDir = path.join(process.cwd(), 'public', 'temp');
-    const projectDir = path.join(baseDir, projectId);
+    const { data: userProjects, error: projectsError } = await supabase
+      .from('projects')
+      .select('project_id')
+      .eq('user_id', user_id);
     
-    if (fs.existsSync(projectDir)) {
-      fs.rmSync(projectDir, { recursive: true, force: true });
+    if (projectsError) {
+      console.error('Error fetching user projects:', projectsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch user projects' },
+        { status: 500 }
+      );
+    }
+    
+    if (userProjects && userProjects.length > 0) {
+      const projectIds = userProjects.map(project => project.project_id);
+      
+      const { error: promptsDeleteError } = await supabase
+        .from('prompts')
+        .delete()
+        .in('project_id', projectIds);
+      
+      if (promptsDeleteError) {
+        console.error('Error deleting project prompts:', promptsDeleteError);
+      }
+    }
+    
+    const { error: projectDeleteError } = await supabase
+      .from('projects')
+      .delete()
+      .eq('user_id', user_id);
+    
+    if (projectDeleteError) {
+      console.error('Error deleting projects from database:', projectDeleteError);
+      return NextResponse.json(
+        { error: 'Failed to delete projects from database' },
+        { status: 500 }
+      );
+    }
+    
+    try {
+      const baseDir = path.join(process.cwd(), 'public', 'temp');
+      await fs.rm(baseDir, { recursive: true, force: true });
+    } catch (fsError) {
+      console.error('Error deleting project directories:', fsError);
     }
     
     return NextResponse.json({ 
       success: true,
-      message: `Project ${projectId} has been deleted`
+      message: `Projects and associated data for user ${user_id} have been deleted`
     });
   } catch (error) {
-    console.error('Error deleting project directory:', error);
+    console.error('Error deleting projects:', error);
     return NextResponse.json(
-      { error: 'Failed to delete project directory' },
+      { error: 'Failed to delete projects' },
       { status: 500 }
     );
   }

@@ -4,6 +4,8 @@ import path from 'path';
 import { exec } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createClient } from '@/utils/supabase/server';
+import { generateProjectId } from '@/components/LandingPage';
 
 const execCommand = (cmd: string) =>
   new Promise<void>((res, rej) =>
@@ -12,42 +14,35 @@ const execCommand = (cmd: string) =>
 
 async function getProjectChatLog(projectId: string) {
   try {
-    const tempDir = path.join(process.cwd(), 'public', 'temp');
-    const logsDir = path.join(tempDir, projectId, 'logs');
+    const supabase = await createClient();
     
-    try {
-      await fs.access(logsDir);
-    } catch (error) {
+    const { data: promptsData, error: promptsError } = await supabase
+      .from('prompts')
+      .select('usr_msg, llm_res')
+      .eq('project_id', projectId)
+      .order('timestamp', { ascending: false });
+  
+    if (promptsError) {
+      console.error('Error fetching prompts:', promptsError);
       return { prompts: [], code: '' };
     }
     
-    const files = await fs.readdir(logsDir);
-    const logFiles = files.filter(file => file.startsWith('chat-log-') && file.endsWith('.json'));
-    
-    if (logFiles.length === 0) {
+    if (!promptsData || promptsData.length === 0) {
       return { prompts: [], code: '' };
     }
     
-    logFiles.sort().reverse();
-    
-    const latestLogFile = logFiles[0];
-    const logFilePath = path.join(logsDir, latestLogFile);
-    
-    const fileContent = await fs.readFile(logFilePath, 'utf-8');
-    const logs: { userMessage: string; llmResponse?: { code?: string } }[] = JSON.parse(fileContent);
-    
-    if (!logs || logs.length === 0) {
-      return { prompts: [], code: '' };
-    }
-    
-    const prompts = logs.map((log: { userMessage: string }) => log.userMessage);
+    const prompts = promptsData.map(prompt => prompt.usr_msg);
     
     let latestCode = '';
-    for (let i = logs.length - 1; i >= 0; i--) {
-      const response = logs[i].llmResponse;
-      if (response && response.code) {
-        latestCode = response.code;
-        break;
+    for (const prompt of promptsData) {
+      try {
+        const llmResponse = prompt.llm_res ? JSON.parse(prompt.llm_res) : null;
+        if (llmResponse && llmResponse.code) {
+          latestCode = llmResponse.code;
+          break;
+        }
+      } catch (e) {
+        console.error('Error parsing llm_res JSON:', e);
       }
     }
     
@@ -126,11 +121,14 @@ const getGeminiCode = async (prompt: string, projectId?: string) => {
 };
 
 export async function POST(req: NextRequest) {
-  const { prompt, cleanAll, projectId } = await req.json();
+  const { prompt, projectId } = await req.json();
+  
+  const supabase = await createClient();
   
   const publicTempDir = path.join(process.cwd(), 'public', 'temp');
   
   let baseDir: string;
+  let currentProjectId = projectId;
   
   if (projectId) {
     baseDir = path.join(publicTempDir, projectId);
@@ -141,7 +139,26 @@ export async function POST(req: NextRequest) {
       await fs.mkdir(baseDir, { recursive: true });
     }
   } else {
-    baseDir = publicTempDir;
+    if (prompt) {
+      const { data: newProject, error: projectError } = await supabase
+        .from('projects')
+        .insert({
+          project_id: generateProjectId()  
+        })
+        .select()
+        .single();
+      
+      if (projectError) {
+        console.error('Error creating new project:', projectError);
+        return NextResponse.json({ error: 'Failed to create new project' }, { status: 500 });
+      }
+      
+      currentProjectId = newProject.project_id;
+      baseDir = path.join(publicTempDir, currentProjectId);
+      await fs.mkdir(baseDir, { recursive: true });
+    } else {
+      baseDir = publicTempDir;
+    }
   }
 
   /* ── create directory for each request ── */
@@ -151,23 +168,13 @@ export async function POST(req: NextRequest) {
   const mediaDir = path.join(jobDir, 'media');
 
   try {
-    /* ──  cleanup button  ── */
-    if (cleanAll) {
-      if (projectId) {
-        await fs.rm(baseDir, { recursive: true, force: true });
-      } else {
-        await fs.rm(publicTempDir, { recursive: true, force: true });
-      }
-      return NextResponse.json({ message: 'Temporary files cleaned' });
-    }
-    
     if (!prompt) return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
 
     await fs.mkdir(mediaDir, { recursive: true });
 
     /* ── generate code ── */
     const sceneName = 'GeneratedScene';
-    const code = await getGeminiCode(prompt, projectId);
+    const code = await getGeminiCode(prompt, currentProjectId);
 
     const pyPath = path.join(jobDir, 'scene.py');
     await fs.writeFile(pyPath, code);
@@ -188,17 +195,40 @@ export async function POST(req: NextRequest) {
     await fs.copyFile(rendered, finalVideoPath);
 
     let relativeVideoPath;
-    if (projectId) {
-      relativeVideoPath = `/temp/${projectId}/${id}/video.mp4`;
+    if (currentProjectId) {
+      relativeVideoPath = `/temp/${currentProjectId}/${id}/video.mp4`;
     } else {
       relativeVideoPath = `/temp/${id}/video.mp4`;
+    }
+
+    const relativeCodePath = currentProjectId 
+      ? `/temp/${currentProjectId}/${id}/scene.py` 
+      : `/temp/${id}/scene.py`;
+
+    const llmResponse = JSON.stringify({
+      code,
+      videoPath: relativeVideoPath,
+      codePath: relativeCodePath
+    });
+
+    const { error: promptInsertError } = await supabase
+      .from('prompts')
+      .insert({
+        prompt_id: id,
+        project_id: currentProjectId,
+        usr_msg: prompt,
+        llm_res: llmResponse,
+      });
+
+    if (promptInsertError) {
+      console.error('Error inserting prompt:', promptInsertError);
     }
 
     let hasContext = false;
     let promptHistory: string[] = [];
     
-    if (projectId) {
-      const chatLog = await getProjectChatLog(projectId);
+    if (currentProjectId) {
+      const chatLog = await getProjectChatLog(currentProjectId);
       hasContext = chatLog.prompts.length > 0;
       promptHistory = chatLog.prompts;
     }
@@ -206,11 +236,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       code,
       videoPath: relativeVideoPath,
-      codePath: projectId 
-        ? `/temp/${projectId}/${id}/scene.py` 
-        : `/temp/${id}/scene.py`,
+      codePath: relativeCodePath,
       hasContext,
-      promptHistory
+      promptHistory,
+      projectId: currentProjectId
     });
   } catch (err: any) {
     console.error(err);

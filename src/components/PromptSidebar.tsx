@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { logChatMessage } from '../utils/logger';
 
 interface PromptSidebarProps {
   onPromptSubmit: (prompt: string) => void;
@@ -46,66 +45,58 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     
     const fetchChatLogs = async () => {
       try {
-        const response = await fetch(`/api/log?projectId=${projectId}`);
+        const response = await fetch(`/api/prompts?projectId=${projectId}`);
         
         if (!response.ok) {
           throw new Error('Failed to fetch chat logs');
         }
         
         const data = await response.json();
-        
-        if (data.logs && data.logs.length > 0) {
+                
+        if (data.prompts && data.prompts.length > 0) {
           const messages: ChatMessage[] = [];
           
           messages.push(welcomeMessage);
           
-          data.logs.forEach((log: any) => {
+          data.prompts.forEach((prompt: any) => {
             messages.push({
-              id: `user-${log.timestamp}`,
-              text: log.userMessage,
+              id: `sent-${prompt.id}`,
+              text: prompt.usrMsg,
               isUser: true,
-              timestamp: new Date(log.timestamp),
+              timestamp: new Date(prompt.timestamp),
               status: 'sent' as 'sent'
             });
             
-            if (log.llmResponse) {
-              if (log.llmResponse.error) {
+            if (prompt.llmRes) {
+              const llmRes = JSON.parse(prompt.llmRes);
+              if (llmRes.error) {
                 messages.push({
-                  id: `error-${log.timestamp}`,
-                  text: `Error: ${log.llmResponse.error}`,
+                  id: `error-${prompt.id}`,
+                  text: `Error: ${llmRes.error}`,
                   isUser: false,
-                  timestamp: new Date(log.timestamp),
+                  timestamp: new Date(prompt.timestamp),
                   status: 'error' as 'error'
                 });
               } 
-              else if (log.llmResponse.code) {
+              else if (llmRes.code) {
                 messages.push({
-                  id: `code-${log.timestamp}`,
-                  text: `\`\`\`python\n${log.llmResponse.code}\n\`\`\``,
+                  id: `code-${prompt.id}`,
+                  text: `\`\`\`python\n${llmRes.code}\n\`\`\``,
                   isUser: false,
-                  timestamp: new Date(log.timestamp),
+                  timestamp: new Date(prompt.timestamp),
                   status: 'sent' as 'sent'
                 });
                 
-                if (log.llmResponse.videoPath) {
+                if (llmRes.videoPath) {
                   messages.push({
-                    id: `video-${log.timestamp}`,
+                    id: `success-${prompt.id}`,
                     text: "Manim animation generated successfully! You can view it in the preview section.",
                     isUser: false,
-                    timestamp: new Date(log.timestamp),
+                    timestamp: new Date(prompt.timestamp),
                     status: 'sent' as 'sent'
                   });
                 }
               } 
-              else if (log.llmResponse.videoPath) {
-                messages.push({
-                  id: `success-${log.timestamp}`,
-                  text: "Manim animation generated successfully! You can now edit it in the timeline.",
-                  isUser: false,
-                  timestamp: new Date(log.timestamp),
-                  status: 'sent' as 'sent'
-                });
-              }
             }
           });
           
@@ -173,7 +164,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     updateSuggestionPrompts(promptText);
     
     try {
-      console.log('Connecting to backend API...');
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -185,15 +175,12 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         }),
       });
       
-      console.log('API response received');
       const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.error || data.detail || 'Failed to generate animation');
       }
       
-      await logChatMessage(promptText, data, projectId);
-
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
@@ -244,12 +231,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       
     } catch (error: any) {
       console.error('Error generating animation:', error);
-      
-      try {
-        await logChatMessage(promptText, { error: error.message }, projectId);
-      } catch (logError) {
-        console.error('Error logging chat message:', logError);
-      }
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       

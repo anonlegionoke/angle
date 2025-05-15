@@ -249,7 +249,6 @@ export default function Home() {
         
         const latestVideo = await getLatestProjectVideo(projectId);
         if (latestVideo) {
-          console.log('Found latest video for project:', latestVideo);
           setVideoSrc(latestVideo);
         } else {
           console.log('No previous videos found for this project');

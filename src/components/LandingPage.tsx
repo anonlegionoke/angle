@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Project, getAllProjects } from '@/lib/projectUtils';
@@ -7,6 +9,10 @@ interface LandingPageProps {
   onStartProject: (projectId: string) => void;
 }
 
+export const generateProjectId = () => {
+  return `project_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
 export default function LandingPage({ onStartProject }: LandingPageProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -14,6 +20,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
   const [isClearing, setIsClearing] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   
   const router = useRouter();
 
@@ -40,6 +47,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user && user.email) {
           setUserEmail(user.email);
+          setUserId(user.id);
         }
       } catch (error) {
         console.error('Error fetching user:', error);
@@ -53,7 +61,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
     setIsLoading(true);
     
     try {
-      const projectId = `project_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      const projectId = generateProjectId();
       
       onStartProject(projectId);
       
@@ -112,12 +120,12 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
     setIsClearing(true);
     
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
+      const response = await fetch('/api/projects', {
+        method: 'DELETE',
+        headers: {  
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ cleanAll: true }),
+        body: JSON.stringify({ user_id: userId }),
       });
       
       if (!response.ok) {
