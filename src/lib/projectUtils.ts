@@ -48,22 +48,24 @@ export async function getAllProjects(): Promise<Project[]> {
 
 export async function getLatestProjectVideo(projectId: string): Promise<string | null> {
   try {
-    const response = await fetch(`/api/log?projectId=${projectId}`);
+    const response = await fetch(`/api/prompts?projectId=${projectId}`);
     if (!response.ok) {
       console.error('Failed to fetch project logs:', response.statusText);
       return null;
     }
     
     const data = await response.json();
+
     
-    if (!data.logs || data.logs.length === 0) {
+    if (!data.prompts || data.prompts.length === 0) {
       return null;
     }
     
-    for (let i = data.logs.length - 1; i >= 0; i--) {
-      const log = data.logs[i];
-      if (log.llmResponse && log.llmResponse.videoPath) {
-        const videoPath = log.llmResponse.videoPath;
+    for (let i = data.prompts.length - 1; i >= 0; i--) {
+      const prompt = data.prompts[i];
+      const llmRes = JSON.parse(prompt.llmRes);
+      const videoPath = llmRes.videoPath;
+      if (videoPath) {
         return videoPath.startsWith('/') ? videoPath : `/${videoPath}`;
       }
     }
