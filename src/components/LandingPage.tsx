@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Project, getAllProjects } from '@/lib/projectUtils';
+import { createClient } from '@/utils/supabase/client';
 
 interface LandingPageProps {
   onStartProject: (projectId: string) => void;
@@ -11,6 +12,8 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   
   const router = useRouter();
 
@@ -29,6 +32,22 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
 
     fetchProjects();
   }, [isClearing]);
+
+  useEffect(() => {
+    const fetchUserEmail = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.email) {
+          setUserEmail(user.email);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+    };
+
+    fetchUserEmail();
+  }, []);
 
   const handleStartProject = async () => {
     setIsLoading(true);
@@ -74,6 +93,19 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
     }
   };
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   const handleClearVideos = async () => {
     if (isClearing) return;
     
@@ -100,7 +132,26 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-editor-bg text-white overflow-y-auto max-h-screen pt-4">
+    <div className="min-h-screen flex flex-col items-center bg-editor-bg text-white overflow-y-auto max-h-screen pt-4 relative">
+      <div className="absolute top-4 right-4 flex flex-col items-end">
+        {userEmail && (
+          <div className="text-gray-300 text-xs mb-2">{userEmail}</div>
+        )}
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="bg-gray-700 hover:bg-gray-600 text-white text-sm py-1 px-3 rounded transition-colors flex items-center cursor-pointer"
+        >
+          {isLoggingOut ? (
+            <>
+              <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-white mr-1"></div>
+              Logging out...
+            </>
+          ) : (
+            'Logout'
+          )}
+        </button>
+      </div>
       <div className="text-center my-4">
         <h1 className="text-5xl font-bold mb-6">Angle</h1>
         <p className="text-xl mb-10">AI-Powered Video Editor & Generator</p>
