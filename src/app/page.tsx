@@ -275,6 +275,18 @@ export default function Home() {
       setVideoSrc('');
   };
 
+  useEffect(() => {
+    async function fetchLatestVideo() {
+      const latestVideo = await getLatestProjectVideo(currentProjectId!);
+      if (latestVideo) {
+        setVideoSrc(latestVideo);
+      } else {
+        console.log('No previous videos found for this project');
+      }
+    }
+    fetchLatestVideo();
+  }, [currentProjectId]);  
+
   if (!showEditor) {
     return <LandingPage onStartProject={handleStartProject} />;
   }

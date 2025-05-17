@@ -35,11 +35,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   
   useEffect(() => {
     setIsClient(true);
-    console.log('VideoPreview mounted, videoSrc:', videoSrc);
   }, []);
   
   useEffect(() => {
-    console.log('VideoSrc changed to:', videoSrc);
     setVideoError(null);
   }, [videoSrc]);
   
@@ -124,8 +122,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
             {videoError && (
               <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
                 <div className="text-red-400 text-center max-w-md">
-                  <p>⚠️ {videoError}</p>
-                  <p className="text-sm mt-2">Video path: {videoSrc}</p>
+                  {/* <p>⚠️ {videoError}</p> */}
+                  {/* <p className="text-sm mt-2">Video path: {videoSrc}</p> */}
                   <button 
                     onClick={() => window.open(videoSrc, '_blank')}
                     className="mt-3 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-white text-sm"
@@ -217,13 +215,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
               />
             </div>
           </div>
-        </div>
-      )}
-      
-      {/* Debug info in development */}
-      {process.env.NODE_ENV === 'development' && videoSrc && (
-        <div className="p-2 text-xs text-gray-400 bg-gray-800">
-          <p>Video source: {videoSrc}</p>
         </div>
       )}
     </div>
