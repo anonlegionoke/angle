@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { promises as fs } from 'fs';
-import path from 'path';
 
 export async function POST(request: Request) {
   try {
@@ -23,16 +21,6 @@ export async function POST(request: Request) {
       );
     }
     } 
-    
-    const baseDir = path.join(process.cwd(), 'public', 'temp');
-    const projectDir = path.join(baseDir, projectId);
-    
-    try {
-      await fs.mkdir(baseDir, { recursive: true });
-      await fs.mkdir(projectDir, { recursive: true });
-    } catch (dirError) {
-      console.error('Error creating project directory:', dirError);
-    }
     
     return NextResponse.json({ 
       success: true, 
@@ -134,13 +122,6 @@ export async function DELETE(request: Request) {
         { error: 'Failed to delete projects from database' },
         { status: 500 }
       );
-    }
-    
-    try {
-      const baseDir = path.join(process.cwd(), 'public', 'temp');
-      await fs.rm(baseDir, { recursive: true, force: true });
-    } catch (fsError) {
-      console.error('Error deleting project directories:', fsError);
     }
     
     return NextResponse.json({ 

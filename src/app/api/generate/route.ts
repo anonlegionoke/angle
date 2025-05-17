@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { exec } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@/utils/supabase/server';
 import { generateProjectId } from '@/components/LandingPage';
-
-const execCommand = (cmd: string) =>
-  new Promise<void>((res, rej) =>
-    exec(cmd, (err, out, errOut) => (err ? rej(err) : (errOut && console.warn(errOut), res())))
-  );
 
 async function getProjectChatLog(projectId: string) {
   try {
@@ -36,7 +28,7 @@ async function getProjectChatLog(projectId: string) {
     let latestCode = '';
     for (const prompt of promptsData) {
       try {
-        const llmResponse = prompt.llm_res ? JSON.parse(prompt.llm_res) : null;
+        const llmResponse = prompt.llm_res ?? prompt.llm_res;
         if (llmResponse && llmResponse.code) {
           latestCode = llmResponse.code;
           break;
@@ -124,91 +116,69 @@ export async function POST(req: NextRequest) {
   const { prompt, projectId } = await req.json();
   
   const supabase = await createClient();
-  
-  const publicTempDir = path.join(process.cwd(), 'public', 'temp');
-  
-  let baseDir: string;
   let currentProjectId = projectId;
   
-  if (projectId) {
-    baseDir = path.join(publicTempDir, projectId);
+  if (!projectId && prompt) {
+    const { data: newProject, error: projectError } = await supabase
+      .from('projects')
+      .insert({
+        project_id: generateProjectId()  
+      })
+      .select()
+      .single();
     
-    try {
-      await fs.access(baseDir);
-    } catch (err) {
-      await fs.mkdir(baseDir, { recursive: true });
+    if (projectError) {
+      console.error('Error creating new project:', projectError);
+      return NextResponse.json({ error: 'Failed to create new project' }, { status: 500 });
     }
-  } else {
-    if (prompt) {
-      const { data: newProject, error: projectError } = await supabase
-        .from('projects')
-        .insert({
-          project_id: generateProjectId()  
-        })
-        .select()
-        .single();
-      
-      if (projectError) {
-        console.error('Error creating new project:', projectError);
-        return NextResponse.json({ error: 'Failed to create new project' }, { status: 500 });
-      }
-      
-      currentProjectId = newProject.project_id;
-      baseDir = path.join(publicTempDir, currentProjectId);
-      await fs.mkdir(baseDir, { recursive: true });
-    } else {
-      baseDir = publicTempDir;
-    }
+    
+    currentProjectId = newProject.project_id;
   }
 
-  /* ── create directory for each request ── */
+  /* ── create unique ID for request ── */
   const id = uuidv4();
-  const jobDir = path.join(baseDir, id);
-  const pyCacheDir = path.join(jobDir, '__pycache__')
-  const mediaDir = path.join(jobDir, 'media');
 
   try {
     if (!prompt) return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
-
-    await fs.mkdir(mediaDir, { recursive: true });
 
     /* ── generate code ── */
     const sceneName = 'GeneratedScene';
     const code = await getGeminiCode(prompt, currentProjectId);
 
-    const pyPath = path.join(jobDir, 'scene.py');
-    await fs.writeFile(pyPath, code);
+    /* ── render using worker API ── */
+    const workerUrl = process.env.WORKER_URL;
+    if (!workerUrl) throw new Error('WORKER_URL not set in environment variables');
 
-    /* ── render ── */
-    await execCommand(
-      `manim render --disable_caching --media_dir "${mediaDir}" --output_file final.mp4 "${pyPath}" ${sceneName}`
-    );
+    const renderResponse = await fetch(`${workerUrl}/render`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        code,
+        scene_name: sceneName,
+        job_id: id,
+        project_id: currentProjectId || 'default-project'
+      })
+    });
 
-    /* ── grab output ── */
-    const searchDir = path.join(mediaDir, 'videos');
-    const allFiles  = await fs.readdir(searchDir, { recursive: true });
-    const mp4Rel    = allFiles.find((f) => f.endsWith('.mp4'));
-    if (!mp4Rel) throw new Error('Rendered video not found');
-    const rendered  = path.join(searchDir, mp4Rel);
-
-    const finalVideoPath = path.join(jobDir, 'video.mp4');
-    await fs.copyFile(rendered, finalVideoPath);
-
-    let relativeVideoPath;
-    if (currentProjectId) {
-      relativeVideoPath = `/temp/${currentProjectId}/${id}/video.mp4`;
-    } else {
-      relativeVideoPath = `/temp/${id}/video.mp4`;
+    if (!renderResponse.ok) {
+      const errorText = await renderResponse.text();
+      throw new Error(`Worker render failed: ${renderResponse.status} ${errorText}`);
     }
 
-    const relativeCodePath = currentProjectId 
-      ? `/temp/${currentProjectId}/${id}/scene.py` 
-      : `/temp/${id}/scene.py`;
+    const renderResult = await renderResponse.json();
+    const videoUrl = renderResult.video_url;
+
+    if (!videoUrl) {
+      throw new Error('Worker did not return a video URL');
+    }
+
+    const relativeVideoPath = videoUrl;
 
     const llmResponse = JSON.stringify({
       code,
-      videoPath: relativeVideoPath,
-      codePath: relativeCodePath
+      videoPath: relativeVideoPath
     });
 
     const { error: promptInsertError } = await supabase
@@ -236,7 +206,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       code,
       videoPath: relativeVideoPath,
-      codePath: relativeCodePath,
       hasContext,
       promptHistory,
       projectId: currentProjectId
@@ -244,11 +213,5 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error(err);
     return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 });
-  } finally {
-    await Promise.allSettled([
-       /* ── delete all temp/cache files ── */
-        fs.rm(mediaDir, { recursive: true, force: true }),
-        fs.rm(pyCacheDir, { recursive: true, force: true })
-    ])
   }
 }

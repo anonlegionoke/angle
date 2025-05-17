@@ -1,16 +1,3 @@
-export async function createProjectDirectory(projectId: string): Promise<string> {
-  
-  console.log(`Creating project directory for ID: ${projectId}`);
-  
-  const projectPath = `/temp/${projectId}`;
-  
-  return projectPath;
-}
-
-export function getProjectVideoPath(projectId: string, videoName: string): string {
-  return `/temp/${projectId}/${videoName}`;
-}
-
 export function storeCurrentProject(projectId: string): void {
   if (typeof window !== 'undefined') {
     localStorage.setItem('currentProjectId', projectId);
@@ -63,7 +50,7 @@ export async function getLatestProjectVideo(projectId: string): Promise<string |
     
     for (let i = data.prompts.length - 1; i >= 0; i--) {
       const prompt = data.prompts[i];
-      const llmRes = JSON.parse(prompt.llmRes);
+      const llmRes = prompt.llmRes;
       const videoPath = llmRes.videoPath;
       if (videoPath) {
         return videoPath.startsWith('/') ? videoPath : `/${videoPath}`;
