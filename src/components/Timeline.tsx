@@ -18,6 +18,8 @@ interface TimelineProps {
   onExport: () => void;
   onResetVideoTrim: () => void;
   onResetAudioTrim: () => void;
+  sidebarWidth?: number;
+  isExporting?: boolean;
 }
 
 interface TimeMarker {
@@ -25,23 +27,24 @@ interface TimeMarker {
   label: string;
 }
 
-const Timeline: React.FC<TimelineProps> = ({
-  currentTime,
-  duration,
-  videoTrimStart,
-  videoTrimEnd,
-  audioTrimStart,
-  audioTrimEnd,
-  onScrub,
-  onVideoTrimStartChange,
-  onVideoTrimEndChange,
-  onAudioTrimStartChange,
-  onAudioTrimEndChange,
-  onApplyTrim,
-  onExport,
-  onResetVideoTrim,
-  onResetAudioTrim
-}) => {
+const Timeline: React.FC<TimelineProps> = (props) => {
+  const {
+    currentTime,
+    duration,
+    videoTrimStart,
+    videoTrimEnd,
+    audioTrimStart,
+    audioTrimEnd,
+    onScrub,
+    onVideoTrimStartChange,
+    onVideoTrimEndChange,
+    onAudioTrimStartChange,
+    onAudioTrimEndChange,
+    onApplyTrim,
+    onExport,
+    onResetVideoTrim,
+    onResetAudioTrim
+  } = props;
   const [draggingState, setDraggingState] = useState({
     isDragging: false,
     isVideoTrimStartDragging: false,
@@ -60,11 +63,23 @@ const Timeline: React.FC<TimelineProps> = ({
   useEffect(() => {
     if (duration <= 0) return;
     
-    const markers: TimeMarker[] = [];
-    const interval = duration <= 30 ? 1 : 
-                    duration <= 60 ? 5 : 
-                    duration <= 300 ? 15 : 30;
+    const timelineWidth = timelineRef.current?.clientWidth || window.innerWidth;
+    const availableWidth = timelineWidth - 240;
     
+    const targetMarkerCount = Math.max(5, Math.floor(availableWidth / 70));
+    const idealInterval = duration / targetMarkerCount;
+    
+    let interval;
+    if (idealInterval <= 1) interval = 1;
+    else if (idealInterval <= 2) interval = 2;
+    else if (idealInterval <= 5) interval = 5;
+    else if (idealInterval <= 10) interval = 10;
+    else if (idealInterval <= 15) interval = 15;
+    else if (idealInterval <= 30) interval = 30;
+    else if (idealInterval <= 60) interval = 60;
+    else interval = Math.ceil(idealInterval / 60) * 60;
+    
+    const markers: TimeMarker[] = [];
     for (let time = 0; time <= duration; time += interval) {
       markers.push({
         position: `${(time / duration) * 100}%`,
@@ -73,7 +88,7 @@ const Timeline: React.FC<TimelineProps> = ({
     }
     
     setTimeMarkers(markers);
-  }, [duration, zoom]);
+  }, [duration, zoom, props.sidebarWidth]);
 
   const formatTime = (time: number): string => {
     const minutes = Math.floor(time / 60);
@@ -170,6 +185,46 @@ const Timeline: React.FC<TimelineProps> = ({
     });
   };
   
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => {
+      if (duration > 0) {
+        const timelineWidth = timelineRef.current?.clientWidth || window.innerWidth;
+        const availableWidth = timelineWidth - 240;
+        
+        const targetMarkerCount = Math.max(5, Math.floor(availableWidth / 70));
+        const idealInterval = duration / targetMarkerCount;
+        
+        let interval;
+        if (idealInterval <= 1) interval = 1;
+        else if (idealInterval <= 2) interval = 2;
+        else if (idealInterval <= 5) interval = 5;
+        else if (idealInterval <= 10) interval = 10;
+        else if (idealInterval <= 15) interval = 15;
+        else if (idealInterval <= 30) interval = 30;
+        else if (idealInterval <= 60) interval = 60;
+        else interval = Math.ceil(idealInterval / 60) * 60;
+        
+        const markers: TimeMarker[] = [];
+        for (let time = 0; time <= duration; time += interval) {
+          markers.push({
+            position: `${(time / duration) * 100}%`,
+            label: formatTime(time)
+          });
+        }
+        
+        setTimeMarkers(markers);
+      }
+    });
+    
+    if (timelineRef.current) {
+      resizeObserver.observe(timelineRef.current);
+    }
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [duration]);
+
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (draggingState.isVideoTrimStartDragging && videoTrackRef.current) {
@@ -296,9 +351,18 @@ const Timeline: React.FC<TimelineProps> = ({
           </button>
           <button 
             onClick={onExport}
-            className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+            disabled={props.isExporting}
+            className={`${props.isExporting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white px-3 py-1 rounded flex items-center gap-2`}
           >
-            Export Video
+            {props.isExporting ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Exporting...
+              </>
+            ) : 'Export Video'}
           </button>
         </div>
         <div className="flex items-center gap-4">

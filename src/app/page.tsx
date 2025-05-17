@@ -156,10 +156,69 @@ export default function Home() {
     handleScrub(videoTrimStart);
   };
   
-  const handleExport = () => {
-    console.log('Exporting video with current trim settings...');
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  const handleExport = async () => {
+    if (!videoSrc || isExporting) return;
     
-    alert(`Exporting video with:\n- Format: MP4\n- Video trim: ${videoTrimStart.toFixed(2)}s to ${videoTrimEnd.toFixed(2)}s\n- Audio trim: ${audioTrimStart.toFixed(2)}s to ${audioTrimEnd.toFixed(2)}s`);
+    console.log('Exporting video with current trim settings...');
+    setIsExporting(true);
+    
+    try {
+      const origin = window.location.origin;
+      const exportEndpoint = `${origin}/api/export`;
+      
+      console.log('Exporting video from source:', videoSrc);
+      
+      const response = await fetch(exportEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          videoPath: videoSrc,
+          videoTrimStart,
+          videoTrimEnd,
+          audioTrimStart,
+          audioTrimEnd
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to export video');
+      }
+      
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'exported-video.mp4';
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/i);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      const blob = await response.blob();
+      
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+      
+      console.log('Export successful, file downloaded');
+      
+    } catch (error) {
+      console.error('Error exporting video:', error);
+      setIsExporting(false);
+      alert(`Export failed: ${(error as Error).message}`);
+    } finally {
+      setIsExporting(false);
+    }
   };
   
   const handleResetVideoTrim = () => {
@@ -301,7 +360,7 @@ export default function Home() {
         
         <button 
           onClick={handleExitProject}
-          className="absolute right-4 top-4 bg-red-700 hover:bg-red-600 transition-colors text-white px-3 py-1 rounded text-sm"
+          className="absolute right-4 top-4 bg-red-700 hover:bg-red-600 transition-colors text-white px-3 py-1 rounded text-sm cursor-pointer"
         >
           Exit Project
         </button>
@@ -342,6 +401,8 @@ export default function Home() {
             onExport={handleExport}
             onResetVideoTrim={handleResetVideoTrim}
             onResetAudioTrim={handleResetAudioTrim}
+            sidebarWidth={sidebarWidth}
+            isExporting={isExporting}
           />
         </div>
         
