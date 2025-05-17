@@ -68,7 +68,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
             });
             
             if (prompt.llmRes) {
-              const llmRes = prompt.llmRes;
+              const llmRes = JSON.parse(prompt.llmRes);
               if (llmRes.error) {
                 messages.push({
                   id: `error-${prompt.id}`,
