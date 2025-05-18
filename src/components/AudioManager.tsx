@@ -10,6 +10,7 @@ export interface AudioClip {
   blob: Blob;
   startTime: number;
   duration: number;
+  _delete?: boolean;
 }
 
 interface AudioManagerProps {
@@ -20,7 +21,7 @@ interface AudioManagerProps {
 
 const AudioManager: React.FC<AudioManagerProps> = ({ onAddAudioClip, onClose, currentTime }) => {
   const [activeTab, setActiveTab] = useState<'record' | 'import'>('record');
-  const [clipName, setClipName] = useState<string>(`Audio Clip ${new Date().toLocaleTimeString()}`);
+  const [clipName, setClipName] = useState<string>(`Audio ${new Date().toLocaleTimeString()}`);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleAudioRecorded = (audioBlob: Blob, audioUrl: string, duration: number) => {

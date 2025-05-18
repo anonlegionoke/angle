@@ -10,6 +10,8 @@ import { AudioClip } from '@/components/AudioManager';
 
 const DEFAULT_SIDEBAR_WIDTH = 350;
 const SIDEBAR_WIDTH_KEY = 'angle_sidebar_width';
+const DEFAULT_TIMELINE_HEIGHT_RATIO = 0.3;
+const TIMELINE_HEIGHT_RATIO_KEY = 'angle_timeline_height_ratio';
 
 export default function Home() {
   const blobToBase64 = (blob: Blob): Promise<string> => {
@@ -37,13 +39,16 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isLoopingEnabled, setIsLoopingEnabled] = useState<boolean>(false);
   const [sidebarWidth, setSidebarWidth] = useState<number>(DEFAULT_SIDEBAR_WIDTH);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [timelineHeightRatio, setTimelineHeightRatio] = useState<number>(DEFAULT_TIMELINE_HEIGHT_RATIO);
+  const [isDraggingSidebar, setIsDraggingSidebar] = useState<boolean>(false);
+  const [isDraggingTimeline, setIsDraggingTimeline] = useState<boolean>(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState<boolean>(false);
   const [audioClips, setAudioClips] = useState<AudioClip[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const dividerRef = useRef<HTMLDivElement | null>(null);
+  const sideBarDividerRef = useRef<HTMLDivElement | null>(null);
+  const timelineDividerRef = useRef<HTMLDivElement | null>(null);
 
   const AUDIO_CLIPS_STORAGE_KEY = 'angle_audio_clips';
   
@@ -62,6 +67,14 @@ export default function Home() {
         const parsedWidth = parseInt(savedWidth, 10);
         if (!isNaN(parsedWidth) && parsedWidth >= 250 && parsedWidth <= 600) {
           setSidebarWidth(parsedWidth);
+        }
+      }
+      
+      const savedHeightRatio = localStorage.getItem(TIMELINE_HEIGHT_RATIO_KEY);
+      if (savedHeightRatio) {
+        const parsedRatio = parseFloat(savedHeightRatio);
+        if (!isNaN(parsedRatio) && parsedRatio >= 0.1 && parsedRatio <= 0.7) {
+          setTimelineHeightRatio(parsedRatio);
         }
       }
       
@@ -112,7 +125,7 @@ export default function Home() {
   
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
+      if (isDraggingSidebar) {
         const newWidth = window.innerWidth - e.clientX;
         
         const constrainedWidth = Math.max(250, Math.min(600, newWidth));
@@ -121,14 +134,14 @@ export default function Home() {
     };
     
     const handleMouseUp = () => {
-      setIsDragging(false);
+      setIsDraggingSidebar(false);
       
       if (typeof window !== 'undefined') {
         localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
       }
     };
     
-    if (isDragging) {
+    if (isDraggingSidebar) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     }
@@ -137,11 +150,54 @@ export default function Home() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, sidebarWidth]);
+  }, [isDraggingSidebar, sidebarWidth]);
   
-  const handleDividerMouseDown = (e: React.MouseEvent) => {
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingTimeline) {
+        const mainContainer = document.querySelector('main');
+        if (!mainContainer) return;
+        
+        const mainRect = mainContainer.getBoundingClientRect();
+        const mainHeight = mainRect.height;
+        
+        const mouseYRelativeToMain = e.clientY - mainRect.top;
+        const ratio = 1 - (mouseYRelativeToMain / mainHeight);
+        
+        const constrainedRatio = Math.max(0.1, Math.min(0.7, ratio));
+        setTimelineHeightRatio(constrainedRatio);
+        
+        e.preventDefault();
+      }
+    };
+    
+    const handleMouseUp = () => {
+      setIsDraggingTimeline(false);
+      
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(TIMELINE_HEIGHT_RATIO_KEY, timelineHeightRatio.toString());
+      }
+    };
+    
+    if (isDraggingTimeline) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingTimeline, timelineHeightRatio]);
+  
+  const handleSidebarDividerMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    setIsDraggingSidebar(true);
+  };
+
+  const handleTimelineDividerMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDraggingTimeline(true);
   };
 
   const handleMetadataLoaded = () => {
@@ -384,6 +440,21 @@ export default function Home() {
     }
   }, [audioClips, duration, videoTrimEnd, audioTrimEnd]);
   
+  const handleRemoveAudioClip = (clipId: string) => {
+    console.log(`Removing audio clip with ID: ${clipId}`);
+    
+    const updatedClips = audioClips.filter(clip => clip.id !== clipId);
+    console.log(`Updated clips length: ${updatedClips.length}`);
+    
+    setAudioClips(updatedClips);
+    
+    saveAudioClipsToStorage(updatedClips);
+    
+    if (updatedClips.length === 0 && videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
   const handleAddAudioClip = (clip: AudioClip) => {
     let newAudioClips: AudioClip[] = [];
     
@@ -402,6 +473,33 @@ export default function Home() {
       return;
     }
     
+    if (clip && '_delete' in clip) {
+      console.log('Received clip with _delete flag:', clip);
+      console.log(`Attempting to delete audio clip: ${clip.name} (ID: ${clip.id})`);
+      console.log('Current audioClips:', audioClips);
+      
+      const clipExists = audioClips.some(c => c.id === clip.id);
+      console.log(`Clip with ID ${clip.id} exists in audioClips array: ${clipExists}`);
+      
+      if (clipExists) {
+        newAudioClips = audioClips.filter(c => c.id !== clip.id);
+        console.log(`Filtered audioClips, new length: ${newAudioClips.length}`);
+        setAudioClips(newAudioClips);
+        
+        if (newAudioClips.length === 0 && videoRef.current) {
+          console.log('No clips left, resetting duration to video duration');
+          setDuration(videoRef.current.duration);
+        }
+        
+        console.log('Saving updated clips to storage');
+        saveAudioClipsToStorage(newAudioClips);
+      } else {
+        console.warn(`Could not find clip with ID ${clip.id} to delete`);
+      }
+      
+      return;
+    }
+    
     const existingClipIndex = audioClips.findIndex(c => c.id === clip.id);
     
     if (existingClipIndex >= 0) {
@@ -416,7 +514,6 @@ export default function Home() {
     }
     
     setAudioClips(newAudioClips);
-    
     saveAudioClipsToStorage(newAudioClips);
   };
 
@@ -644,23 +741,36 @@ export default function Home() {
 
       <main className="flex flex-1 overflow-hidden">
         {/* Main workspace */}
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 overflow-hidden">
           {/* Video preview */}
-          <VideoPreview 
-            videoRef={videoRef} 
-            videoSrc={videoSrc} 
-            onMetadataLoaded={handleMetadataLoaded} 
-            onTimeUpdate={handleTimeUpdate}
-            volume={volume}
-            onVolumeChange={handleVolumeChange}
-            isMuted={isMuted}
-            onMuteToggle={handleMuteToggle}
-            videoTrimStart={videoTrimStart}
-            videoTrimEnd={videoTrimEnd}
-            isLoopingEnabled={isLoopingEnabled}
-          />
+          <div style={{ flex: `${1 - timelineHeightRatio}` }} className="min-h-0 overflow-hidden">
+            <VideoPreview 
+              videoRef={videoRef} 
+              videoSrc={videoSrc} 
+              onMetadataLoaded={handleMetadataLoaded} 
+              onTimeUpdate={handleTimeUpdate}
+              volume={volume}
+              onVolumeChange={handleVolumeChange}
+              isMuted={isMuted}
+              onMuteToggle={handleMuteToggle}
+              videoTrimStart={videoTrimStart}
+              videoTrimEnd={videoTrimEnd}
+              isLoopingEnabled={isLoopingEnabled}
+            />
+          </div>
+        
+        {/* Resizable divider - Timeline */}
+        <div 
+          ref={timelineDividerRef}
+          className="h-1 bg-editor-border hover:bg-blue-500 cursor-row-resize active:bg-blue-700 transition-colors flex items-center justify-center"
+          onMouseDown={handleTimelineDividerMouseDown}
+          title="Drag to resize timeline"
+        >
+          <div className="w-16 h-1 bg-gray-400 rounded-full"></div>
+        </div>
 
           {/* Timeline */}
+        <div style={{ flex: timelineHeightRatio }} className="w-full border-l border-editor-border overflow-y-auto min-h-0">
           <Timeline 
             currentTime={currentTime} 
             duration={duration} 
@@ -681,14 +791,16 @@ export default function Home() {
             isExporting={isExporting}
             audioClips={audioClips}
             onAddAudioClip={handleAddAudioClip}
+            onRemoveAudioClip={handleRemoveAudioClip}
           />
+          </div>
         </div>
         
-        {/* Resizable divider */}
-        <div 
-          ref={dividerRef}
-          className="w-1 bg-editor-border hover:bg-blue-500 cursor-col-resize active:bg-blue-700 transition-colors"
-          onMouseDown={handleDividerMouseDown}
+          {/* Resizable divider - Sidebar */}
+          <div 
+          ref={sideBarDividerRef}
+          className="w-1 bg-editor-border hover:bg-blue-500 cursor-col-resize active:bg-blue-700 transition-colors flex items-center justify-center"
+          onMouseDown={handleSidebarDividerMouseDown}
           title="Drag to resize sidebar"
         />
 
