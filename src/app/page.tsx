@@ -6,6 +6,7 @@ import Timeline from '@/components/Timeline';
 import PromptSidebar from '@/components/PromptSidebar';
 import LandingPage from '@/components/LandingPage';
 import { storeCurrentProject, getCurrentProject, Project, getAllProjects, getLatestProjectVideo } from '@/lib/projectUtils';
+import { AudioClip } from '@/components/AudioManager';
 
 const DEFAULT_SIDEBAR_WIDTH = 350;
 const SIDEBAR_WIDTH_KEY = 'angle_sidebar_width';
@@ -26,10 +27,14 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState<boolean>(false);
+  const [audioClips, setAudioClips] = useState<AudioClip[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const dividerRef = useRef<HTMLDivElement | null>(null);
 
+  // Constants for localStorage keys
+  const AUDIO_CLIPS_STORAGE_KEY = 'angle_audio_clips';
+  
   useEffect(() => {
     console.log('App initialized, ready for video generation');
     
@@ -40,11 +45,47 @@ export default function Home() {
     }
     
     if (typeof window !== 'undefined') {
+      // Load sidebar width from localStorage
       const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
       if (savedWidth) {
         const parsedWidth = parseInt(savedWidth, 10);
         if (!isNaN(parsedWidth) && parsedWidth >= 250 && parsedWidth <= 600) {
           setSidebarWidth(parsedWidth);
+        }
+      }
+      
+      // Load audio clips from localStorage
+      const savedAudioClips = localStorage.getItem(AUDIO_CLIPS_STORAGE_KEY);
+      if (savedAudioClips) {
+        try {
+          const parsedClips = JSON.parse(savedAudioClips);
+          
+          // Convert stored data back to AudioClip objects with Blob reconstruction
+          const restoredClips = parsedClips.map((clip: any) => {
+            // Create a new Blob from the base64 data if it exists
+            let blob = new Blob([]);
+            if (clip.blobData) {
+              const byteCharacters = atob(clip.blobData);
+              const byteNumbers = new Array(byteCharacters.length);
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+              }
+              const byteArray = new Uint8Array(byteNumbers);
+              blob = new Blob([byteArray], { type: clip.blobType || 'audio/webm' });
+            }
+            
+            return {
+              ...clip,
+              blob: blob,
+              // Recreate URL from blob
+              url: clip.url || URL.createObjectURL(blob)
+            };
+          });
+          
+          console.log('Loaded audio clips from localStorage:', restoredClips.length);
+          setAudioClips(restoredClips);
+        } catch (error) {
+          console.error('Failed to parse saved audio clips:', error);
         }
       }
     }
@@ -108,16 +149,130 @@ export default function Home() {
     }
   };
 
+  // Manage synchronized playback of video and audio clips
+  const [syncedAudioPlayers, setSyncedAudioPlayers] = useState<{[key: string]: HTMLAudioElement}>({});
+  
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+      const newCurrentTime = videoRef.current.currentTime;
+      setCurrentTime(newCurrentTime);
+      
+      // Check if any audio clips should start or stop playing based on current time
+      if (audioClips && audioClips.length > 0) {
+        audioClips.forEach(clip => {
+          const clipEndTime = clip.startTime + clip.duration;
+          
+          // If current time is within this clip's range and video is playing
+          if (newCurrentTime >= clip.startTime && newCurrentTime < clipEndTime && !videoRef.current?.paused) {
+            // If we don't already have this clip playing in sync mode
+            if (!syncedAudioPlayers[clip.id]) {
+              console.log(`Starting synced playback of audio clip: ${clip.name}`);
+              
+              // Create new audio element for this clip
+              const audio = new Audio(clip.url);
+              
+              // Calculate where in the clip to start playing
+              const offsetIntoClip = newCurrentTime - clip.startTime;
+              audio.currentTime = Math.max(0, Math.min(clip.duration, offsetIntoClip));
+              
+              // Match video volume settings
+              audio.volume = videoRef.current?.muted ? 0 : (videoRef.current?.volume || 1);
+              
+              // Set up cleanup when audio ends
+              audio.onended = () => {
+                audio.pause();
+                setSyncedAudioPlayers(prev => {
+                  const updated = {...prev};
+                  delete updated[clip.id];
+                  return updated;
+                });
+              };
+              
+              // Start playing
+              audio.play().catch(err => console.error(`Error playing synced audio clip ${clip.name}:`, err));
+              
+              // Add to tracked synced players
+              setSyncedAudioPlayers(prev => ({
+                ...prev,
+                [clip.id]: audio
+              }));
+            }
+          } 
+          // If current time is outside clip range but we have it playing
+          else if (syncedAudioPlayers[clip.id]) {
+            // Stop this clip
+            syncedAudioPlayers[clip.id].pause();
+            setSyncedAudioPlayers(prev => {
+              const updated = {...prev};
+              delete updated[clip.id];
+              return updated;
+            });
+          }
+        });
+      }
     }
   };
 
+  // Function to stop all synced audio playback
+  const stopAllSyncedAudio = () => {
+    Object.values(syncedAudioPlayers).forEach(audio => {
+      audio.pause();
+    });
+    setSyncedAudioPlayers({});
+  };
+  
+  const handleVideoEnded = () => {
+    // Stop all audio clips when video ends
+    Object.values(syncedAudioPlayers).forEach(audio => {
+      audio.pause();
+    });
+    setSyncedAudioPlayers({});
+    setCurrentTime(0); // Reset to beginning
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    
+    const handlePause = () => {
+      // Update playback state
+      console.log('Video paused');
+    };
+    
+    const handlePlay = () => {
+      // Update playback state
+      console.log('Video playing');
+    };
+    
+    const handleEnded = () => {
+      console.log('Video ended');
+      handleVideoEnded();
+    };
+    
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('ended', handleEnded);
+    
+    return () => {
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('ended', handleEnded);
+    };
+  }, [audioClips]);
+  
   const handleScrub = (newTime: number) => {
+    // Stop all currently playing synced audio when scrubbing
+    Object.values(syncedAudioPlayers).forEach(audio => {
+      audio.pause();
+    });
+    setSyncedAudioPlayers({});
+    
+    // Update the current time in our state
+    setCurrentTime(newTime);
+    
+    // Update video position
     if (videoRef.current) {
       videoRef.current.currentTime = newTime;
-      setCurrentTime(newTime);
     }
   };
 
@@ -157,6 +312,150 @@ export default function Home() {
   };
   
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  
+  // Debounce timer reference for localStorage saves
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Function to save audio clips to localStorage with debouncing
+  const saveAudioClipsToStorage = (clips: AudioClip[]) => {
+    if (typeof window === 'undefined') return;
+    
+    // Clear any existing timer to implement debouncing
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+    
+    // Set a new timer to save after a delay (500ms is usually good for drag operations)
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        // Convert blobs to base64 for storage
+        const clipsForStorage = clips.map(clip => {
+          // Create a serializable version of the clip
+          const serializedClip = {
+            ...clip,
+            // Store blob type for reconstruction
+            blobType: clip.blob.type,
+            // Convert blob to base64 string if it's not too large
+            blobData: '',
+            // We'll keep the URL property but it will be regenerated on load
+            url: ''
+          };
+          
+          // Only try to serialize blobs under a certain size to avoid localStorage limits
+          if (clip.blob.size < 5 * 1024 * 1024) { // 5MB limit
+            const reader = new FileReader();
+            reader.readAsDataURL(clip.blob);
+            reader.onloadend = () => {
+              const base64data = reader.result as string;
+              // Remove the data URL prefix (e.g., 'data:audio/webm;base64,')
+              const base64Content = base64data.split(',')[1];
+              
+              // Update this specific clip in storage
+              const currentStorage = localStorage.getItem(AUDIO_CLIPS_STORAGE_KEY);
+              if (currentStorage) {
+                const currentClips = JSON.parse(currentStorage);
+                const clipIndex = currentClips.findIndex((c: any) => c.id === clip.id);
+                
+                if (clipIndex >= 0) {
+                  currentClips[clipIndex].blobData = base64Content;
+                  localStorage.setItem(AUDIO_CLIPS_STORAGE_KEY, JSON.stringify(currentClips));
+                }
+              }
+            };
+          }
+          
+          return serializedClip;
+        });
+        
+        // Save to localStorage (initial save without blob data, which will be updated asynchronously)
+        localStorage.setItem(AUDIO_CLIPS_STORAGE_KEY, JSON.stringify(clipsForStorage));
+        console.log(`Saved ${clips.length} audio clips to localStorage`);
+      } catch (error) {
+        console.error('Failed to save audio clips to localStorage:', error);
+      }
+    }, 500); // 500ms debounce delay
+  };
+  
+  // Calculate the effective timeline duration based on video and audio clips
+  const calculateEffectiveDuration = (videoDuration: number, clips: AudioClip[]) => {
+    if (!clips || clips.length === 0) {
+      return videoDuration;
+    }
+    
+    // Find the end point of the furthest audio clip
+    const furthestAudioEnd = clips.reduce((maxEnd, clip) => {
+      const clipEnd = clip.startTime + clip.duration;
+      return Math.max(maxEnd, clipEnd);
+    }, 0);
+    
+    // Return the greater of video duration or furthest audio clip end
+    return Math.max(videoDuration, furthestAudioEnd);
+  };
+  
+  // Update the timeline duration whenever audio clips change
+  useEffect(() => {
+    if (videoRef.current) {
+      const videoDuration = videoRef.current.duration;
+      const effectiveDuration = calculateEffectiveDuration(videoDuration, audioClips);
+      
+      if (effectiveDuration > duration) {
+        console.log(`Updating timeline duration from ${duration}s to ${effectiveDuration}s due to audio clips`);
+        setDuration(effectiveDuration);
+        
+        // Only extend the trim end if it was at the previous max duration
+        if (Math.abs(videoTrimEnd - duration) < 0.1) {
+          setVideoTrimEnd(effectiveDuration);
+        }
+        
+        if (Math.abs(audioTrimEnd - duration) < 0.1) {
+          setAudioTrimEnd(effectiveDuration);
+        }
+      }
+    }
+  }, [audioClips, duration, videoTrimEnd, audioTrimEnd]);
+  
+  const handleAddAudioClip = (clip: AudioClip) => {
+    let newAudioClips: AudioClip[] = [];
+    
+    // Handle the case when an empty object is received (all clips removed)
+    if (clip && Object.keys(clip).length === 0) {
+      console.log('Empty clip object received, clearing all audio clips');
+      newAudioClips = [];
+      setAudioClips(newAudioClips);
+      
+      // Clear from localStorage when all clips are removed
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(AUDIO_CLIPS_STORAGE_KEY);
+      }
+      
+      // Reset duration to video duration when all audio clips are removed
+      if (videoRef.current) {
+        setDuration(videoRef.current.duration);
+      }
+      return;
+    }
+    
+    const existingClipIndex = audioClips.findIndex(c => c.id === clip.id);
+    
+    if (existingClipIndex >= 0) {
+      // Update existing clip
+      const updatedClips = [...audioClips];
+      updatedClips[existingClipIndex] = clip;
+      newAudioClips = updatedClips;
+    } else if (clip && 'id' in clip) {
+      // Add new clip
+      newAudioClips = [...audioClips, clip];
+    } else {
+      console.warn('Invalid audio clip object received', clip);
+      return;
+    }
+    
+    // Update state with new clips
+    setAudioClips(newAudioClips);
+    
+    // Save to localStorage
+    saveAudioClipsToStorage(newAudioClips);
+  };
 
   const handleExport = async () => {
     if (!videoSrc || isExporting) return;
@@ -336,6 +635,7 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchLatestVideo() {
+      if (!currentProjectId) return;
       const latestVideo = await getLatestProjectVideo(currentProjectId!);
       if (latestVideo) {
         setVideoSrc(latestVideo);
@@ -403,6 +703,8 @@ export default function Home() {
             onResetAudioTrim={handleResetAudioTrim}
             sidebarWidth={sidebarWidth}
             isExporting={isExporting}
+            audioClips={audioClips}
+            onAddAudioClip={handleAddAudioClip}
           />
         </div>
         

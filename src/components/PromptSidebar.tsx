@@ -111,7 +111,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     };
     
     fetchChatLogs();
-  }, [projectId]);
+  }, []);
   
   const [suggestionPrompts, setSuggestionPrompts] = useState<SuggestionPrompt[]>([]);
   
@@ -350,7 +350,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
             <button
               key={suggestion.id}
               onClick={() => handleSuggestionClick(suggestion)}
-              className="text-xs bg-editor-border hover:bg-editor-highlight transition-colors px-3 py-1 rounded-full text-gray-300"
+              className="text-xs bg-editor-border hover:bg-editor-highlight transition-colors px-3 py-1 rounded-full text-gray-300 cursor-pointer"
             >
               {suggestion.text}
             </button>
@@ -376,7 +376,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
             className={`absolute bottom-3 right-3 rounded-full w-8 h-8 flex items-center justify-center transition-colors ${
               !prompt.trim() || isGenerating
                 ? 'bg-editor-border text-gray-500 cursor-not-allowed'
-                : 'bg-editor-highlight text-white hover:bg-blue-700'
+                : 'bg-editor-highlight text-white hover:bg-blue-700 cursor-pointer'
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">

@@ -26,10 +26,9 @@ body {
   overflow: hidden;
 }
 
-/* Custom scrollbar for the dark theme */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -38,7 +37,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--editor-border);
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
