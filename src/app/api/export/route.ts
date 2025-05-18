@@ -26,7 +26,43 @@ export async function POST(request: NextRequest) {
   const tempFiles: string[] = [];
   
   try {
-    const { videoPath, videoTrimStart, videoTrimEnd, audioTrimStart, audioTrimEnd } = await request.json();
+    const { videoPath, videoTrimStart, videoTrimEnd, audioTrimStart, audioTrimEnd, audioClips } = await request.json();
+    
+    const audioClipFiles: { path: string; startTime: number; duration: number }[] = [];
+    
+    if (audioClips && Array.isArray(audioClips) && audioClips.length > 0) {
+      console.log(`Processing ${audioClips.length} audio clips for export`);
+      
+      const audioTempDir = path.join(process.cwd(), 'tmp', 'audio');
+      if (!fs.existsSync(audioTempDir)) {
+        fs.mkdirSync(audioTempDir, { recursive: true });
+      }
+      
+      for (const clip of audioClips) {
+        try {
+          if (!clip.blobBase64) {
+            console.warn(`Audio clip ${clip.id} has no blob data, skipping`);
+            continue;
+          }
+          
+          const buffer = Buffer.from(clip.blobBase64, 'base64');
+          
+          const audioFilePath = path.join(audioTempDir, `${clip.id}.webm`);
+          fs.writeFileSync(audioFilePath, buffer);
+          tempFiles.push(audioFilePath);
+          
+          audioClipFiles.push({
+            path: audioFilePath,
+            startTime: clip.startTime,
+            duration: clip.duration
+          });
+          
+          console.log(`Saved audio clip ${clip.id} to ${audioFilePath}`);
+        } catch (error) {
+          console.error(`Error processing audio clip ${clip.id}:`, error);
+        }
+      }
+    }
 
     if (!videoPath) {
       return NextResponse.json({ error: 'Video path is required' }, { status: 400 });
@@ -159,23 +195,80 @@ export async function POST(request: NextRequest) {
     const exportPath = path.join(tempDir, exportFilename);
     tempFiles.push(exportPath);
 
-    let ffmpegCommand = `ffmpeg -i "${absoluteVideoPath}" -c:v libx264 -preset medium -crf 22`;
-
+    let ffmpegCommand = '';
     const hasTrimming = videoTrimStart > 0 || videoTrimEnd < Infinity || audioTrimStart > 0 || audioTrimEnd < Infinity;
     
-    if (hasTrimming) {
-      if (videoTrimStart > 0 || videoTrimEnd < Infinity) {
-        const duration = videoTrimEnd - videoTrimStart;
-        ffmpegCommand += ` -ss ${videoTrimStart} -t ${duration}`;
+    const tmpDir = path.join(process.cwd(), 'tmp');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    
+    const filterComplexFile = path.join(tmpDir, `filter-${uuidv4()}.txt`);
+    tempFiles.push(filterComplexFile);
+    
+    let filterComplex = '';
+    
+    if (hasTrimming && (videoTrimStart > 0 || videoTrimEnd < Infinity)) {
+      const duration = videoTrimEnd - videoTrimStart;
+      ffmpegCommand = `ffmpeg -ss ${videoTrimStart} -i "${absoluteVideoPath}" -t ${duration}`;
+    } else {
+      ffmpegCommand = `ffmpeg -i "${absoluteVideoPath}"`;
+    }
+    
+    if (audioClipFiles && audioClipFiles.length > 0) {
+      for (const clip of audioClipFiles) {
+        ffmpegCommand += ` -i "${clip.path}"`;
       }
       
-      if ((audioTrimStart !== videoTrimStart || audioTrimEnd !== videoTrimEnd) && 
-          (audioTrimStart > 0 || audioTrimEnd < Infinity)) {
-        const audioStart = audioTrimStart - videoTrimStart;
-        const audioDuration = audioTrimEnd - audioTrimStart;
-        ffmpegCommand += ` -af "adelay=${Math.max(0, audioStart * 1000)}|${Math.max(0, audioStart * 1000)},apad,atrim=0:${audioDuration}"`;
+      let mainAudioExists = true;
+      try {
+        const probeCommand = `ffprobe -v error -select_streams a -show_entries stream=codec_type -of csv=p=0 "${absoluteVideoPath}"`;
+        const { stdout } = await execPromise(probeCommand);
+        mainAudioExists = stdout.trim() === 'audio';
+        console.log(`Main video ${mainAudioExists ? 'has' : 'does not have'} audio stream`);
+      } catch (error) {
+        console.warn('Error checking for audio stream:', error);
+        mainAudioExists = true;
       }
+      
+      if (mainAudioExists) {
+        filterComplex += `[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=1[mainAudio];
+`;
+      }
+      
+      for (let i = 0; i < audioClipFiles.length; i++) {
+        const clip = audioClipFiles[i];
+        const inputIndex = i + 1;
+        const startTimeSeconds = clip.startTime;
+        
+        filterComplex += `[${inputIndex}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,`;
+        filterComplex += `adelay=${Math.round(startTimeSeconds * 1000)}|${Math.round(startTimeSeconds * 1000)},`;
+        filterComplex += `volume=1[a${i}];
+`;
+      }
+      
+      if (mainAudioExists) {
+        filterComplex += `[mainAudio]`;
+      }
+      
+      for (let i = 0; i < audioClipFiles.length; i++) {
+        filterComplex += `[a${i}]`;
+      }
+      
+      const inputCount = mainAudioExists ? audioClipFiles.length + 1 : audioClipFiles.length;
+      filterComplex += `amix=inputs=${inputCount}:duration=longest:normalize=0[aout]`;
+      
+      fs.writeFileSync(filterComplexFile, filterComplex);
+      
+      ffmpegCommand += ` -filter_complex_script "${filterComplexFile}" -map 0:v -map [aout]`;
+    } else if (hasTrimming && (audioTrimStart !== videoTrimStart || audioTrimEnd !== videoTrimEnd) && 
+               (audioTrimStart > 0 || audioTrimEnd < Infinity)) {
+      const audioStart = audioTrimStart - videoTrimStart;
+      const audioDuration = audioTrimEnd - audioTrimStart;
+      ffmpegCommand += ` -af "adelay=${Math.max(0, audioStart * 1000)}|${Math.max(0, audioStart * 1000)},apad,atrim=0:${audioDuration}"`;
     }
+    
+    ffmpegCommand += ` -c:v libx264 -preset medium -crf 22 -c:a aac -b:a 192k`;
 
     ffmpegCommand += ` -y "${exportPath}"`;
 
