@@ -740,8 +740,8 @@ const Timeline: React.FC<TimelineProps> = ({
                         }}
                       >
                         {/* Waveform visualization */}
-                        <div className="absolute inset-0 flex items-center justify-center gap-2 px-2">
-                          {Array.from({ length: 10 }).map((_, i) => {
+                        <div className="absolute inset-0 flex items-center justify-center gap-1 px-2">
+                          {Array.from({ length: 8 }).map((_, i) => {
                             const staticHeight = 40 + ((i * 13) % 40);
                             const isPlaying = playingClipId === clip.id;
                             
