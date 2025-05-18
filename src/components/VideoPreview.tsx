@@ -99,13 +99,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
   
   return (
-    <div className="flex-3 flex flex-col bg-black border-b border-editor-border justify-center">
-      <div className="flex justify-center items-center relative">
+    <div className="flex flex-col bg-black border-b border-editor-border justify-center h-full">
+      <div className="flex justify-center items-center relative overflow-hidden h-full">
         {isClient && videoSrc ? (
           <>
             <video
               ref={videoRef}
-              className="max-w-full max-h-[37vh]"
+              className="max-w-full max-h-full object-contain"
               src={videoSrc}
               onLoadedMetadata={onMetadataLoaded}
               onTimeUpdate={onTimeUpdate}

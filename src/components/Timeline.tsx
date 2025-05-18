@@ -22,6 +22,7 @@ interface TimelineProps {
   sidebarWidth?: number;
   isExporting?: boolean;
   onAddAudioClip?: (clip: AudioClip) => void;
+  onRemoveAudioClip?: (clipId: string) => void;
   audioClips?: AudioClip[];
 }
 
@@ -49,6 +50,7 @@ const Timeline: React.FC<TimelineProps> = ({
   sidebarWidth = 240,
   isExporting = false,
   onAddAudioClip,
+  onRemoveAudioClip,
   audioClips = []
 }) => {
   const [draggingState, setDraggingState] = useState({
@@ -584,10 +586,11 @@ const Timeline: React.FC<TimelineProps> = ({
 
         {/* Audio tracks */}
         <div className="flex flex-col">
-          <div className="flex items-center mb-1">
+          <div className="flex items-center mb-2">
             <div className="w-[120px] flex items-center justify-center text-sm font-medium">
               Added Audio
             </div>
+            <div className="border-r border-gray-600 mr-4 h-6"></div>
             <div className="flex gap-2">
               <button 
                 onClick={handleAddAudioClick}
@@ -599,9 +602,8 @@ const Timeline: React.FC<TimelineProps> = ({
                 Add Audio
               </button>
               
-              <div className="border-r border-gray-600 mx-2 h-6"></div>
               
-              <button 
+              {/* <button 
                 onClick={setAudioStartToCurrent}
                 className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight cursor-pointer"
               >
@@ -619,7 +621,7 @@ const Timeline: React.FC<TimelineProps> = ({
                 title="Reset audio trim points to the full duration"
               >
                 Reset Audio Trim
-              </button>
+              </button> */}
             </div>
           </div>
                     
@@ -688,13 +690,23 @@ const Timeline: React.FC<TimelineProps> = ({
                           title="Remove this clip"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (onAddAudioClip && confirm(`Remove audio clip "${clip.name}"?`)) {
-                              const updatedClips = audioClips?.filter((c: AudioClip) => c.id !== clip.id) || [];
+                            console.log('Delete button clicked for clip:', clip.name);
+                            
+                            if (confirm(`Remove audio clip "${clip.name}"?`)) {
+                              console.log(`User confirmed deletion of audio clip: ${clip.name} (ID: ${clip.id})`);
                               
-                              if (updatedClips.length > 0) {
-                                onAddAudioClip(updatedClips[0]);
+                              if (audioElementsRef.current[clip.id]) {
+                                audioElementsRef.current[clip.id].pause();
+                                delete audioElementsRef.current[clip.id];
+                              }
+
+                              setSelectedAudioClip(null);
+                              
+                              if (onRemoveAudioClip) {
+                                console.log('Calling onRemoveAudioClip with clip ID:', clip.id);
+                                onRemoveAudioClip(clip.id);
                               } else {
-                                onAddAudioClip({} as AudioClip);
+                                console.error('onRemoveAudioClip function is not available');
                               }
                             }
                           }}
