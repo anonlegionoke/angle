@@ -611,7 +611,6 @@ export default function Home() {
     
     try {
       if (!videoPath) {
-        setVideoSrc('');
         setIsGenerating(false);
         return;
       }
