@@ -99,13 +99,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
   
   return (
-    <div className="flex-3 flex flex-col bg-black border-b border-editor-border">
-      <div className="flex justify-center items-center p-4 relative">
+    <div className="flex-3 flex flex-col bg-black border-b border-editor-border justify-center">
+      <div className="flex justify-center items-center relative">
         {isClient && videoSrc ? (
           <>
             <video
               ref={videoRef}
-              className="max-w-full max-h-[30vh]"
+              className="max-w-full max-h-[37vh]"
               src={videoSrc}
               onLoadedMetadata={onMetadataLoaded}
               onTimeUpdate={onTimeUpdate}
@@ -135,7 +135,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
             )}
           </>
         ) : (
-          <div className=" mt-5 flex flex-col items-center justify-center w-full bg-editor-panel rounded">
+          <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
             <span className="text-xl mb-4">MANIM VIDEO</span>
             <p className="text-gray-400">{isClient && !videoSrc ? 'Enter a math prompt to generate a video' : 'Loading...'}</p>
             <div className="text-sm text-gray-500 mt-4 max-w-md text-center px-4">
@@ -210,7 +210,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
                 step="0.01" 
                 value={volume} 
                 onChange={handleVolumeChange}
-                className="w-24 accent-blue-500"
+                className="w-24 accent-white"
                 disabled={isMuted}
               />
             </div>

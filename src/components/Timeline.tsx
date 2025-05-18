@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import AudioManager, { AudioClip } from './AudioManager';
 
 interface TimelineProps {
   currentTime: number;
@@ -20,6 +21,8 @@ interface TimelineProps {
   onResetAudioTrim: () => void;
   sidebarWidth?: number;
   isExporting?: boolean;
+  onAddAudioClip?: (clip: AudioClip) => void;
+  audioClips?: AudioClip[];
 }
 
 interface TimeMarker {
@@ -27,24 +30,27 @@ interface TimeMarker {
   label: string;
 }
 
-const Timeline: React.FC<TimelineProps> = (props) => {
-  const {
-    currentTime,
-    duration,
-    videoTrimStart,
-    videoTrimEnd,
-    audioTrimStart,
-    audioTrimEnd,
-    onScrub,
-    onVideoTrimStartChange,
-    onVideoTrimEndChange,
-    onAudioTrimStartChange,
-    onAudioTrimEndChange,
-    onApplyTrim,
-    onExport,
-    onResetVideoTrim,
-    onResetAudioTrim
-  } = props;
+const Timeline: React.FC<TimelineProps> = ({
+  currentTime,
+  duration,
+  videoTrimStart,
+  videoTrimEnd,
+  audioTrimStart,
+  audioTrimEnd,
+  onScrub,
+  onVideoTrimStartChange,
+  onVideoTrimEndChange,
+  onAudioTrimStartChange,
+  onAudioTrimEndChange,
+  onApplyTrim,
+  onExport,
+  onResetVideoTrim,
+  onResetAudioTrim,
+  sidebarWidth = 240,
+  isExporting = false,
+  onAddAudioClip,
+  audioClips = []
+}) => {
   const [draggingState, setDraggingState] = useState({
     isDragging: false,
     isVideoTrimStartDragging: false,
@@ -53,13 +59,20 @@ const Timeline: React.FC<TimelineProps> = (props) => {
     isAudioTrimEndDragging: false
   });
   
-  const [zoom, setZoom] = useState(1);
   const [timeMarkers, setTimeMarkers] = useState<TimeMarker[]>([]);
+  const [showAudioManager, setShowAudioManager] = useState(false);
+  const [selectedAudioClip, setSelectedAudioClip] = useState<string | null>(null);
+  const [draggingAudioClip, setDraggingAudioClip] = useState<{ id: string; initialX: number; initialStartTime: number } | null>(null);
   
   const timelineRef = useRef<HTMLDivElement>(null);
   const videoTrackRef = useRef<HTMLDivElement>(null);
   const audioTrackRef = useRef<HTMLDivElement>(null);
   
+  const [playingClipId, setPlayingClipId] = useState<string | null>(null);
+  const audioElementsRef = useRef<{[key: string]: HTMLAudioElement}>({});
+
+  console.log("Audio Clips",audioClips);
+
   useEffect(() => {
     if (duration <= 0) return;
     
@@ -88,7 +101,7 @@ const Timeline: React.FC<TimelineProps> = (props) => {
     }
     
     setTimeMarkers(markers);
-  }, [duration, zoom, props.sidebarWidth]);
+  }, [duration, sidebarWidth]);
 
   const formatTime = (time: number): string => {
     const minutes = Math.floor(time / 60);
@@ -225,6 +238,75 @@ const Timeline: React.FC<TimelineProps> = (props) => {
     };
   }, [duration]);
 
+  console.log('draggingAudioClip',draggingAudioClip);
+
+  useEffect(() => {
+    if (!draggingAudioClip || !audioTrackRef.current || !onAddAudioClip) return;
+    
+    const initialX = draggingAudioClip.initialX;
+    const initialStartTime = draggingAudioClip.initialStartTime;
+    const trackRect = audioTrackRef.current.getBoundingClientRect();
+    
+    const pixelsPerSecond = trackRect.width / duration;
+    
+    let animationFrameId: number | null = null;
+    let lastMouseX = initialX;
+    
+    const handleAudioClipDrag = (e: MouseEvent) => {
+      e.preventDefault();
+      
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      
+      animationFrameId = requestAnimationFrame(() => {
+        const totalDeltaX = e.clientX - initialX;
+        
+        const deltaTime = totalDeltaX / pixelsPerSecond;
+        
+        const clipToUpdate = audioClips?.find(clip => clip.id === draggingAudioClip.id);
+        if (!clipToUpdate) return;
+        
+        const newStartTime = Math.max(0, Math.min(
+          duration - clipToUpdate.duration, 
+          initialStartTime + deltaTime
+        ));
+        
+        
+        if (newStartTime !== clipToUpdate.startTime) {
+          const updatedClip = {
+            ...clipToUpdate,
+            startTime: newStartTime
+          };
+          
+          if (onAddAudioClip) {
+            onAddAudioClip(updatedClip);
+          }
+        }
+        
+        lastMouseX = e.clientX;
+      });
+    };
+    
+    const handleAudioClipDragEnd = () => {
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      setDraggingAudioClip(null);
+    };
+    
+    document.addEventListener('mousemove', handleAudioClipDrag);
+    document.addEventListener('mouseup', handleAudioClipDragEnd);
+    
+    return () => {
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      document.removeEventListener('mousemove', handleAudioClipDrag);
+      document.removeEventListener('mouseup', handleAudioClipDragEnd);
+    };
+  }, [draggingAudioClip, duration, audioClips, onAddAudioClip]);
+
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (draggingState.isVideoTrimStartDragging && videoTrackRef.current) {
@@ -284,17 +366,7 @@ const Timeline: React.FC<TimelineProps> = (props) => {
   const scrubberPosition = `${(currentTime / duration) * 100}%`;
   const videoClipStartPosition = `${(videoTrimStart / duration) * 100}%`;
   const videoClipWidth = `${((videoTrimEnd - videoTrimStart) / duration) * 100}%`;
-  const audioClipStartPosition = `${(audioTrimStart / duration) * 100}%`;
-  const audioClipWidth = `${((audioTrimEnd - audioTrimStart) / duration) * 100}%`;
   
-  const handleZoomIn = () => {
-    setZoom(Math.min(zoom * 1.5, 5));
-  };
-
-  const handleZoomOut = () => {
-    setZoom(Math.max(zoom / 1.5, 1));
-  };
-
   const seekToTime = (time: number) => {
     onScrub(Math.max(0, Math.min(duration, time)));
   };
@@ -338,50 +410,53 @@ const Timeline: React.FC<TimelineProps> = (props) => {
     }
   };
 
+  const handleAudioTrackClick = (e: React.MouseEvent) => {
+    const rect = audioTrackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const clickPosition = (e.clientX - rect.left) / rect.width;
+    const newTime = Math.max(0, Math.min(audioTrimEnd - 0.5, clickPosition * duration));
+    onAudioTrimStartChange(newTime);
+  };
+
+  const handleAddAudioClick = () => {
+    setShowAudioManager(true);
+  };
+
+  const renderExportButton = () => {
+    return (
+      <button
+        className={`px-3 py-1 text-sm rounded ${isExporting ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}
+        onClick={onExport}
+        disabled={isExporting}
+      >
+        {isExporting ? 'Exporting...' : 'Export'}
+      </button>
+    );
+  };
+
+  const handleAudioClipClick = (clip: AudioClip) => {
+    if (onAddAudioClip) {
+      onAddAudioClip(clip);
+    }
+  };
+
   return (
-    <div className="flex-1 flex flex-col p-4 min-h-[300px] bg-editor-bg">
+    <div className="flex-1 flex flex-col p-4 min-h-[300px] bg-editor-bg select-none">
       {/* Timeline controls */}
       <div className="flex justify-between mb-2">
         <div className="flex gap-2">
           <button 
             onClick={onApplyTrim}
-            className="bg-editor-panel text-white border border-editor-border px-3 py-1 rounded hover:bg-editor-highlight"
+            className="bg-editor-panel text-white border border-editor-border px-3 py-1 rounded hover:bg-editor-highlight cursor-pointer"
           >
             Apply Trim
           </button>
-          <button 
-            onClick={onExport}
-            disabled={props.isExporting}
-            className={`${props.isExporting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white px-3 py-1 rounded flex items-center gap-2`}
-          >
-            {props.isExporting ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Exporting...
-              </>
-            ) : 'Export Video'}
-          </button>
+          {renderExportButton()}
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-sm bg-editor-panel px-2 py-1 rounded border border-editor-border">
+          <div className="text-sm bg-editor-panel px-2 py-1 rounded border border-editor-border select-none">
             {formatTime(currentTime)} / {formatTime(duration)}
-          </div>
-          <div className="flex gap-2">
-            <button 
-              onClick={handleZoomOut}
-              className="bg-editor-panel text-white border border-editor-border w-8 rounded hover:bg-editor-highlight"
-            >
-              -
-            </button>
-            <button 
-              onClick={handleZoomIn}
-              className="bg-editor-panel text-white border border-editor-border w-8 rounded hover:bg-editor-highlight"
-            >
-              +
-            </button>
           </div>
         </div>
       </div>
@@ -401,10 +476,10 @@ const Timeline: React.FC<TimelineProps> = (props) => {
         />
       </div>
 
-      {/* Timeline tracks */}
+      {/* Timeline tracks - scrollable container */}
       <div 
         ref={timelineRef}
-        className="flex-1 flex flex-col gap-4"
+        className="flex-1 flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-250px)]"
       >
         {/* Video track */}
         <div className="flex flex-col">
@@ -415,19 +490,19 @@ const Timeline: React.FC<TimelineProps> = (props) => {
             <div className="flex gap-2">
               <button 
                 onClick={setVideoStartToCurrent}
-                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 cursor-pointer"
               >
                 Set Start
               </button>
               <button 
                 onClick={setVideoEndToCurrent}
-                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 cursor-pointer"
               >
                 Set End
               </button>
               <button 
                 onClick={onResetVideoTrim}
-                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 cursor-pointer"
                 title="Reset video trim points to the full duration"
               >
                 Reset Trim
@@ -435,13 +510,13 @@ const Timeline: React.FC<TimelineProps> = (props) => {
               <div className="border-r border-gray-600 mx-2 h-6"></div>
               <button 
                 onClick={seekToVideoStart}
-                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight"
+                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight cursor-pointer"
               >
                 Go to Start
               </button>
               <button 
                 onClick={seekToVideoEnd}
-                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight"
+                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight cursor-pointer"
               >
                 Go to End
               </button>
@@ -461,165 +536,266 @@ const Timeline: React.FC<TimelineProps> = (props) => {
             >
               {/* Scrubber */}
               <div 
-                className="absolute top-0 h-full w-[2px] bg-red-500 z-10"
+                className="absolute top-0 h-[90%] mt-0.5 w-[5px] rounded-full bg-red-500 z-10"
                 style={{ left: scrubberPosition }}
               />
               
               {/* Video clip */}
               <div 
-                className="absolute h-[80%] top-[10%] bg-editor-highlight rounded group cursor-move"
+                className="absolute h-[80%] top-[10%] bg-editor-highlight rounded group cursor-move select-none"
                 style={{ 
                   left: videoClipStartPosition, 
                   width: videoClipWidth,
-                  transform: zoom > 1 ? `scaleX(${zoom})` : 'none',
                   transformOrigin: 'left'
                 }}
               >
-                {/* Professional trim handles like in industry-standard editors */}
+                {/* Trim handles */}
                 <div 
-                  className="absolute left-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150" 
+                  className="absolute left-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none" 
                   onMouseDown={handleVideoStartTrim}
                   onDoubleClick={seekToVideoStart}
                   title="Drag to adjust start point | Double-click to seek"
                 >
                   <div className="h-10 w-1 bg-white"></div>
-                  <div className="absolute -left-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center">
+                  <div className="absolute -left-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center select-none">
                     {formatTime(videoTrimStart)}
                   </div>
                 </div>
                 <div 
-                  className="absolute right-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150" 
+                  className="absolute right-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none" 
                   onMouseDown={handleVideoEndTrim}
                   onDoubleClick={seekToVideoEnd}
                   title="Drag to adjust end point | Double-click to seek"
                 >
                   <div className="h-10 w-1 bg-white"></div>
-                  <div className="absolute -right-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center">
+                  <div className="absolute -right-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center select-none">
                     {formatTime(videoTrimEnd)}
                   </div>
                 </div>
                 
                 {/* Clip label */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-xs font-bold">{formatTime(videoTrimEnd - videoTrimStart)}</span>
+                  <span className="text-xs font-bold select-none">{formatTime(videoTrimEnd - videoTrimStart)}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Audio track */}
+        {/* Audio tracks */}
         <div className="flex flex-col">
           <div className="flex items-center mb-1">
             <div className="w-[120px] flex items-center justify-center text-sm font-medium">
-              Audio Layer
+              Added Audio
             </div>
             <div className="flex gap-2">
               <button 
-                onClick={setAudioStartToCurrent}
-                className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                onClick={handleAddAudioClick}
+                className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 flex items-center gap-1 cursor-pointer"
               >
-                Set Start
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Add Audio
+              </button>
+              
+              <div className="border-r border-gray-600 mx-2 h-6"></div>
+              
+              <button 
+                onClick={setAudioStartToCurrent}
+                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight cursor-pointer"
+              >
+                Set Audio Start
               </button>
               <button 
                 onClick={setAudioEndToCurrent}
-                className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight cursor-pointer"
               >
-                Set End
+                Set Audio End
               </button>
               <button 
                 onClick={onResetAudioTrim}
-                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 cursor-pointer"
                 title="Reset audio trim points to the full duration"
               >
-                Reset Trim
-              </button>
-              <div className="border-r border-gray-600 mx-2 h-6"></div>
-              <button 
-                onClick={seekToAudioStart}
-                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight"
-              >
-                Go to Start
-              </button>
-              <button 
-                onClick={seekToAudioEnd}
-                className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight"
-              >
-                Go to End
+                Reset Audio Trim
               </button>
             </div>
           </div>
-          <div className="flex h-12 bg-editor-panel border border-editor-border rounded">
-            <div className="w-[120px] flex items-center justify-center bg-editor-panel border-r border-editor-border text-sm">
-              Audio
-            </div>
-            <div 
-              ref={audioTrackRef}
-              className="flex-1 relative overflow-hidden"
-              onMouseDown={(e) => handleTrackMouseDown(e, audioTrackRef)}
-              onMouseMove={handleAudioTrackMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseLeave}
-            >
-              {/* Scrubber */}
-              <div 
-                className="absolute top-0 h-full w-[2px] bg-red-500 z-10"
-                style={{ left: scrubberPosition }}
-              />
-              
-              {/* Audio clip */}
-              <div 
-                className="absolute h-[80%] top-[10%] bg-editor-audio rounded group cursor-move"
-                style={{ 
-                  left: audioClipStartPosition, 
-                  width: audioClipWidth,
-                  transform: zoom > 1 ? `scaleX(${zoom})` : 'none',
-                  transformOrigin: 'left'
-                }}
-              >
-                {/* Waveform visualization (simulated) */}
-                <div className="absolute inset-0 flex items-center justify-around px-2">
-                  {Array.from({ length: 20 }).map((_, i) => (
+                    
+          {/* User audio clips */}
+          {audioClips && audioClips.length > 0 && (
+            <div className="space-y-2" ref={audioTrackRef}>
+              {audioClips.map((clip) => {
+                const clipStartPosition = `${(clip.startTime / duration) * 100}%`;
+                
+                const clipWidth = `${(clip.duration / duration) * 100}%`;
+                const isSelected = selectedAudioClip === clip.id;
+                
+                return (
+                  <div key={clip.id} className="flex h-12 bg-editor-panel border border-editor-border rounded">
+                    <div className="w-[120px] flex items-center justify-between bg-editor-panel border-r border-editor-border text-sm px-1 group">
+                    <span
+                        className="overflow-hidden text-ellipsis whitespace-nowrap"
+                        title={clip.name}
+                      >
+                        {clip.name}
+                      </span>
+                      <div className="flex gap-1 opacity-100 transition-opacity">
+                        <button 
+                          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full w-5 h-5 flex items-center justify-center cursor-pointer"
+                          title={playingClipId === clip.id ? "Pause this clip" : "Play this clip"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            
+                            if (playingClipId === clip.id) {
+                              if (audioElementsRef.current[clip.id]) {
+                                audioElementsRef.current[clip.id].pause();
+                                delete audioElementsRef.current[clip.id];
+                                setPlayingClipId(null);
+                              }
+                            } else {
+                              if (playingClipId && audioElementsRef.current[playingClipId]) {
+                                audioElementsRef.current[playingClipId].pause();
+                                delete audioElementsRef.current[playingClipId];
+                              }
+                              
+                              const audio = new Audio(clip.url);
+                              audioElementsRef.current[clip.id] = audio;
+                              
+                              audio.onended = () => {
+                                setPlayingClipId(null);
+                                delete audioElementsRef.current[clip.id];
+                              };
+                              
+                              audio.play();
+                              setPlayingClipId(clip.id);
+                            }
+                          }}
+                        >
+                          {playingClipId === clip.id ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" fill="currentColor" viewBox="0 0 16 16">
+                              <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" fill="currentColor" viewBox="0 0 16 16">
+                              <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                            </svg>
+                          )}
+                        </button>
+                        <button 
+                          className="bg-red-600 hover:bg-red-700 text-white rounded-full w-5 h-5 flex items-center justify-center cursor-pointer"
+                          title="Remove this clip"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onAddAudioClip && confirm(`Remove audio clip "${clip.name}"?`)) {
+                              const updatedClips = audioClips?.filter((c: AudioClip) => c.id !== clip.id) || [];
+                              
+                              if (updatedClips.length > 0) {
+                                onAddAudioClip(updatedClips[0]);
+                              } else {
+                                onAddAudioClip({} as AudioClip);
+                              }
+                            }
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                     <div 
-                      key={i} 
-                      className="w-[2px] bg-white bg-opacity-30" 
-                      style={{ height: `${30 + (i % 5) * 10}%` }}
-                    />
-                  ))}
-                </div>
-                
-                {/* Professional trim handles like in industry-standard editors */}
-                <div 
-                  className="absolute left-0 top-0 h-full w-4 bg-green-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150" 
-                  onMouseDown={handleAudioStartTrim}
-                  onDoubleClick={seekToAudioStart}
-                  title="Drag to adjust audio start point | Double-click to seek"
-                >
-                  <div className="h-10 w-1 bg-white"></div>
-                  <div className="absolute -left-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center">
-                    {formatTime(audioTrimStart)}
+                      className="flex-1 relative overflow-x-auto overflow-y-hidden mx-1"
+                      onMouseDown={(e) => handleTrackMouseDown(e, audioTrackRef)}
+                      onClick={handleAudioTrackClick}>
+                      <div className="min-w-full">
+                        {/* Scrubber */}
+                        <div 
+                          className="absolute top-0 h-[90%] mt-0.5 w-[5px] rounded-full bg-red-500 z-10"
+                          style={{ left: scrubberPosition }}
+                        />
+                        
+                        {/* Audio clip */}
+                        <div 
+                        className={`absolute h-[80%] top-[10%] rounded group cursor-move ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+                        style={{ 
+                          left: clipStartPosition, 
+                          width: clipWidth,
+                          backgroundColor: '#6366F1',
+                          transformOrigin: 'left'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedAudioClip(isSelected ? null : clip.id);
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setDraggingAudioClip({
+                            id: clip.id,
+                            initialX: e.clientX,
+                            initialStartTime: clip.startTime
+                          });
+                        }}
+                      >
+                        {/* Waveform visualization */}
+                        <div className="absolute inset-0 flex items-center justify-center gap-2 px-2">
+                          {Array.from({ length: 10 }).map((_, i) => {
+                            const staticHeight = 40 + ((i * 13) % 40);
+                            const isPlaying = playingClipId === clip.id;
+                            
+                            return (
+                              <div 
+                                key={i} 
+                                className={`w-[3px] bg-white rounded-full transition-all duration-300 ${
+                                  isPlaying ? 'bg-opacity-60 animate-pulse' : 'bg-opacity-30'
+                                }`}
+                                style={{ 
+                                  height: isPlaying 
+                                    ? `${staticHeight + Math.sin(Date.now() / 200 + i) * 15}%` 
+                                    : `${staticHeight}%`,
+                                  animationDelay: `${i * 50}ms`,
+                                  transition: 'height 0.2s ease-in-out'
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                        
+                        {/* Clip label */}
+                        <div className="absolute hidden group-hover:flex bg-black/60 rounded-sm inset-0 items-center justify-center text-xs font-extrabold text-white">
+                          {clip.name}
+                        </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div 
-                  className="absolute right-0 top-0 h-full w-4 bg-green-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150" 
-                  onMouseDown={handleAudioEndTrim}
-                  onDoubleClick={seekToAudioEnd}
-                  title="Drag to adjust audio end point | Double-click to seek"
-                >
-                  <div className="h-10 w-1 bg-white"></div>
-                  <div className="absolute -right-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center">
-                    {formatTime(audioTrimEnd)}
-                  </div>
-                </div>
-                
-                {/* Clip label */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-xs font-bold">{formatTime(audioTrimEnd - audioTrimStart)}</span>
-                </div>
-              </div>
+                );
+              })}
             </div>
-          </div>
+          )}
+          
+          {/* Add audio track button */}
+          <button 
+            onClick={handleAddAudioClick}
+            className="mt-2 border border-dashed border-gray-600 rounded h-10 flex items-center justify-center text-gray-400 hover:text-white hover:border-gray-400 transition-colors cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" className="mr-2">
+              <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Add Audio Track
+          </button>
         </div>
+        
+        {/* Audio Manager Modal */}
+        {showAudioManager && (
+          <AudioManager
+            onAddAudioClip={handleAudioClipClick}
+            onClose={() => setShowAudioManager(false)}
+            currentTime={currentTime}
+          />
+        )}
       </div>
     </div>
   );
