@@ -196,7 +196,14 @@ export async function POST(request: NextRequest) {
     tempFiles.push(exportPath);
 
     let ffmpegCommand = '';
-    const hasTrimming = videoTrimStart > 0 || videoTrimEnd < Infinity || audioTrimStart > 0 || audioTrimEnd < Infinity;
+    
+    const hasTrimming = true;
+    
+    const effectiveVideoTrimStart = typeof videoTrimStart === 'number' && !isNaN(videoTrimStart) ? videoTrimStart : 0;
+    const effectiveVideoTrimEnd = typeof videoTrimEnd === 'number' && !isNaN(videoTrimEnd) && videoTrimEnd < Infinity ? videoTrimEnd : 300; 
+    
+    const trimDuration = effectiveVideoTrimEnd - effectiveVideoTrimStart;
+    console.log(`Trimming video from ${effectiveVideoTrimStart}s to ${effectiveVideoTrimEnd}s (duration: ${trimDuration}s)`);
     
     const tmpDir = path.join(process.cwd(), 'tmp');
     if (!fs.existsSync(tmpDir)) {
@@ -208,12 +215,7 @@ export async function POST(request: NextRequest) {
     
     let filterComplex = '';
     
-    if (hasTrimming && (videoTrimStart > 0 || videoTrimEnd < Infinity)) {
-      const duration = videoTrimEnd - videoTrimStart;
-      ffmpegCommand = `ffmpeg -ss ${videoTrimStart} -i "${absoluteVideoPath}" -t ${duration}`;
-    } else {
-      ffmpegCommand = `ffmpeg -i "${absoluteVideoPath}"`;
-    }
+    ffmpegCommand = `ffmpeg -ss ${effectiveVideoTrimStart} -i "${absoluteVideoPath}" -t ${trimDuration}`;
     
     if (audioClipFiles && audioClipFiles.length > 0) {
       for (const clip of audioClipFiles) {
@@ -261,11 +263,14 @@ export async function POST(request: NextRequest) {
       fs.writeFileSync(filterComplexFile, filterComplex);
       
       ffmpegCommand += ` -filter_complex_script "${filterComplexFile}" -map 0:v -map [aout]`;
-    } else if (hasTrimming && (audioTrimStart !== videoTrimStart || audioTrimEnd !== videoTrimEnd) && 
-               (audioTrimStart > 0 || audioTrimEnd < Infinity)) {
-      const audioStart = audioTrimStart - videoTrimStart;
-      const audioDuration = audioTrimEnd - audioTrimStart;
-      ffmpegCommand += ` -af "adelay=${Math.max(0, audioStart * 1000)}|${Math.max(0, audioStart * 1000)},apad,atrim=0:${audioDuration}"`;
+    } else if (audioTrimStart !== videoTrimStart || audioTrimEnd !== videoTrimEnd) {
+      const audioStart = Math.max(0, audioTrimStart - videoTrimStart);
+      const audioDuration = Math.min(trimDuration, audioTrimEnd - audioTrimStart);
+      
+      if (audioStart > 0 || audioDuration < trimDuration) {
+        console.log(`Applying audio trim: delay=${audioStart}s, duration=${audioDuration}s`);
+        ffmpegCommand += ` -af "adelay=${Math.max(0, audioStart * 1000)}|${Math.max(0, audioStart * 1000)},apad,atrim=0:${audioDuration}"`;
+      }
     }
     
     ffmpegCommand += ` -c:v libx264 -preset medium -crf 22 -c:a aac -b:a 192k`;

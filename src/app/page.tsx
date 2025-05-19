@@ -45,12 +45,16 @@ export default function Home() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState<boolean>(false);
   const [audioClips, setAudioClips] = useState<AudioClip[]>([]);
+  const [audioBlobUrls, setAudioBlobUrls] = useState<{[key: string]: string}>({}); 
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const sideBarDividerRef = useRef<HTMLDivElement | null>(null);
   const timelineDividerRef = useRef<HTMLDivElement | null>(null);
 
-  const AUDIO_CLIPS_STORAGE_KEY = 'angle_audio_clips';
+  const getAudioClipsStorageKey = (projectId: string | null) => {
+    return projectId ? `angle_audio_clips_${projectId}` : 'angle_audio_clips';
+  };
+  const AUDIO_CLIPS_STORAGE_KEY = getAudioClipsStorageKey(currentProjectId);
   
   useEffect(() => {
     console.log('App initialized, ready for video generation');
@@ -77,37 +81,6 @@ export default function Home() {
           setTimelineHeightRatio(parsedRatio);
         }
       }
-      
-      const savedAudioClips = localStorage.getItem(AUDIO_CLIPS_STORAGE_KEY);
-      if (savedAudioClips) {
-        try {
-          const parsedClips = JSON.parse(savedAudioClips);
-          
-          const restoredClips = parsedClips.map((clip: any) => {
-            let blob = new Blob([]);
-            if (clip.blobData) {
-              const byteCharacters = atob(clip.blobData);
-              const byteNumbers = new Array(byteCharacters.length);
-              for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i);
-              }
-              const byteArray = new Uint8Array(byteNumbers);
-              blob = new Blob([byteArray], { type: clip.blobType || 'audio/webm' });
-            }
-            
-            return {
-              ...clip,
-              blob: blob,
-              url: clip.url || URL.createObjectURL(blob)
-            };
-          });
-          
-          console.log('Loaded audio clips from localStorage:', restoredClips.length);
-          setAudioClips(restoredClips);
-        } catch (error) {
-          console.error('Failed to parse saved audio clips:', error);
-        }
-      }
     }
   }, []);
 
@@ -122,6 +95,89 @@ export default function Home() {
       window.removeEventListener('toggleloop', handleLoopToggle);
     };
   }, [isLoopingEnabled]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(audioBlobUrls).forEach(url => {
+        URL.revokeObjectURL(url);
+      });
+    };
+  }, [audioBlobUrls]);
+
+  const blobUrlsRef = useRef<Map<string, string>>(new Map());
+  
+  useEffect(() => {
+    const urlsToRevoke = new Map<string, string>();
+    
+    if (typeof window !== 'undefined' && currentProjectId) {
+      const projectSpecificKey = getAudioClipsStorageKey(currentProjectId);
+      const savedAudioClips = localStorage.getItem(projectSpecificKey);
+      
+      if (savedAudioClips) {
+        try {
+          const parsedClips = JSON.parse(savedAudioClips);
+          
+          const restoredClips = parsedClips.map((clip: any) => {
+            let blob;
+            let url = '';
+            
+            if (clip.blobData) {
+              try {
+                const byteCharacters = atob(clip.blobData);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                  byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                blob = new Blob([byteArray], { type: clip.blobType || 'audio/webm' });
+                
+                url = URL.createObjectURL(blob);
+                urlsToRevoke.set(clip.id, url);
+                console.log(`Created new blob URL for clip ${clip.id}: ${url}`);
+              } catch (blobError) {
+                console.error(`Failed to create blob for clip ${clip.id}:`, blobError);
+                blob = new Blob([], { type: 'audio/webm' });
+                url = URL.createObjectURL(blob);
+                urlsToRevoke.set(clip.id, url);
+              }
+            } else {
+              console.warn(`No blob data available for clip ${clip.id}`);
+              blob = new Blob([], { type: 'audio/webm' });
+              url = URL.createObjectURL(blob);
+              urlsToRevoke.set(clip.id, url);
+            }
+            
+            return {
+              ...clip,
+              blob: blob,
+              url: url 
+            };
+          });
+          
+          console.log(`Loaded ${restoredClips.length} audio clips for project ${currentProjectId} from localStorage`);
+          setAudioClips(restoredClips);
+        } catch (error) {
+          console.error('Failed to parse saved audio clips:', error);
+        }
+      } else {
+        setAudioClips([]);
+        console.log(`No saved audio clips found for project ${currentProjectId}`);
+      }
+    }
+    
+    blobUrlsRef.current = urlsToRevoke;
+    
+    return () => {
+      blobUrlsRef.current.forEach((url, id) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          console.error(`Failed to revoke URL for clip ${id}:`, e);
+        }
+      });
+      blobUrlsRef.current.clear();
+    };
+  }, [currentProjectId]);
   
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -237,7 +293,23 @@ export default function Home() {
             if (!syncedAudioPlayers[clip.id]) {
               console.log(`Starting synced playback of audio clip: ${clip.name}`);
               
-              const audio = new Audio(clip.url);
+              let audioUrl = clip.url;
+              if ((!audioUrl.startsWith('blob:') || audioUrl.includes('ERR_REQUEST_RANGE_NOT_SATISFIABLE')) && clip.blob) {
+                if (audioBlobUrls[clip.id]) {
+                  URL.revokeObjectURL(audioBlobUrls[clip.id]);
+                }
+                audioUrl = URL.createObjectURL(clip.blob);
+                setAudioBlobUrls(prev => ({
+                  ...prev,
+                  [clip.id]: audioUrl
+                }));
+                
+                setAudioClips(prev => prev.map(c => 
+                  c.id === clip.id ? {...c, url: audioUrl} : c
+                ));
+              }
+              
+              const audio = new Audio(audioUrl);
               
               const offsetIntoClip = newCurrentTime - clip.startTime;
               audio.currentTime = Math.max(0, Math.min(clip.duration, offsetIntoClip));
@@ -253,7 +325,15 @@ export default function Home() {
                 });
               };
               
-              audio.play().catch(err => console.error(`Error playing synced audio clip ${clip.name}:`, err));
+              audio.play().catch(err => {
+                console.error(`Error playing synced audio clip ${clip.name}:`, err);
+                audio.pause();
+                setSyncedAudioPlayers(prev => {
+                  const updated = {...prev};
+                  delete updated[clip.id];
+                  return updated;
+                });
+              });
               
               setSyncedAudioPlayers(prev => ({
                 ...prev,
@@ -369,50 +449,132 @@ export default function Home() {
   
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
   
+  const getStringByteSize = (str: string): number => {
+    return str.length * 2;
+  };
+
+  const checkLocalStorageSpace = (): { used: number, available: number } => {
+    let total = 0;
+    let data = "";
+    
+    for (let key in localStorage) {
+      if (localStorage.hasOwnProperty(key)) {
+        const value = localStorage.getItem(key) || "";
+        total += getStringByteSize(key) + getStringByteSize(value);
+      }
+    }
+    
+    const maxSize = 4.5 * 1024 * 1024;
+    return {
+      used: total,
+      available: Math.max(0, maxSize - total)
+    };
+  };
+
+  const compressAudioData = async (blob: Blob, maxSizeBytes: number): Promise<Blob> => {
+    if (blob.size <= maxSizeBytes) {
+      return blob;
+    }
+    
+    console.warn(`Audio blob size (${blob.size} bytes) exceeds the target size (${maxSizeBytes} bytes)`); 
+    return blob;
+  };
+
   const saveAudioClipsToStorage = (clips: AudioClip[]) => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !currentProjectId) return;
     
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
     }
     
-    saveTimerRef.current = setTimeout(() => {
+    saveTimerRef.current = setTimeout(async () => {
       try {
-        const clipsForStorage = clips.map(clip => {
-          const serializedClip = {
+        const projectSpecificKey = getAudioClipsStorageKey(currentProjectId);
+        
+        const { available } = checkLocalStorageSpace();
+        console.log(`Available localStorage space: ~${Math.round(available / 1024)}KB`);
+        
+        const safeAvailable = available * 0.9;
+        const maxBlobSizeBytes = Math.min(1 * 1024 * 1024, safeAvailable / (clips.length || 1));
+        
+        const sortedClips = [...clips].sort((a, b) => {
+          const getTimestamp = (id: string) => {
+            const match = id.match(/audio-(\d+)/);
+            return match ? parseInt(match[1]) : 0;
+          };
+          return getTimestamp(b.id) - getTimestamp(a.id);
+        });
+        
+        const clipsForStorage = sortedClips.map(clip => {
+          return {
             ...clip,
             blobType: clip.blob.type,
             blobData: '',
             url: ''
           };
-          
-          if (clip.blob.size < 5 * 1024 * 1024) { // 5MB limit
-            const reader = new FileReader();
-            reader.readAsDataURL(clip.blob);
-            reader.onloadend = () => {
-              const base64data = reader.result as string;
-              const base64Content = base64data.split(',')[1];
-              
-              const currentStorage = localStorage.getItem(AUDIO_CLIPS_STORAGE_KEY);
-              if (currentStorage) {
-                const currentClips = JSON.parse(currentStorage);
-                const clipIndex = currentClips.findIndex((c: any) => c.id === clip.id);
-                
-                if (clipIndex >= 0) {
-                  currentClips[clipIndex].blobData = base64Content;
-                  localStorage.setItem(AUDIO_CLIPS_STORAGE_KEY, JSON.stringify(currentClips));
-                }
-              }
-            };
-          }
-          
-          return serializedClip;
         });
         
-        localStorage.setItem(AUDIO_CLIPS_STORAGE_KEY, JSON.stringify(clipsForStorage));
-        console.log(`Saved ${clips.length} audio clips to localStorage`);
+        try {
+          localStorage.setItem(projectSpecificKey, JSON.stringify(clipsForStorage));
+        } catch (e) {
+          console.error('Failed to save even basic clip metadata. Clearing old data and retrying.');
+          for (let key in localStorage) {
+            if (key.startsWith('angle_audio_clips_') && key !== projectSpecificKey) {
+              localStorage.removeItem(key);
+              console.log(`Removed old audio data: ${key}`);
+            }
+          }
+          localStorage.setItem(projectSpecificKey, JSON.stringify(clipsForStorage));
+        }
+        
+        for (let i = 0; i < sortedClips.length; i++) {
+          const clip = sortedClips[i];
+          
+          if (clip.blob.size > 5 * 1024 * 1024) {
+            console.warn(`Skipping blob storage for clip ${clip.id} (${clip.name}): size exceeds 5MB`);
+            continue;
+          }
+          
+          try {
+            const processedBlob = await compressAudioData(clip.blob, maxBlobSizeBytes);
+            
+            const base64Content = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64data = reader.result as string;
+                const base64Content = base64data.split(',')[1];
+                resolve(base64Content);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(processedBlob);
+            });
+            
+            const currentStorage = localStorage.getItem(projectSpecificKey);
+            if (currentStorage) {
+              const currentClips = JSON.parse(currentStorage);
+              const clipIndex = currentClips.findIndex((c: any) => c.id === clip.id);
+              
+              if (clipIndex >= 0) {
+                currentClips[clipIndex].blobData = base64Content;
+                try {
+                  localStorage.setItem(projectSpecificKey, JSON.stringify(currentClips));
+                } catch (storageError) {
+                  console.warn(`Storage quota exceeded for clip ${i+1}/${sortedClips.length}. Saving without blob data.`);
+                  currentClips[clipIndex].blobData = '';
+                  localStorage.setItem(projectSpecificKey, JSON.stringify(currentClips));
+                  break;
+                }
+              }
+            }
+          } catch (blobError) {
+            console.error(`Failed to process blob for clip ${clip.id}:`, blobError);
+          }
+        }
+        
+        console.log(`Saved ${clips.length} audio clips for project ${currentProjectId} to localStorage`);
       } catch (error) {
         console.error('Failed to save audio clips to localStorage:', error);
+        alert('Warning: Some audio data couldn\'t be saved due to storage limitations. Your audio clips will still work in the current session, but may not persist after reload.');
       }
     }, 500); // 500ms debounce delay
   };
@@ -468,13 +630,36 @@ export default function Home() {
   const handleAddAudioClip = (clip: AudioClip) => {
     let newAudioClips: AudioClip[] = [];
     
+    if (clip && clip.blob && !clip._delete) {
+      if (audioBlobUrls[clip.id]) {
+        URL.revokeObjectURL(audioBlobUrls[clip.id]);
+      }
+      
+      const blobUrl = URL.createObjectURL(clip.blob);
+      
+      setAudioBlobUrls(prev => ({
+        ...prev,
+        [clip.id]: blobUrl
+      }));
+      
+      clip = {
+        ...clip,
+        url: blobUrl
+      };
+    }
+    
     if (clip && Object.keys(clip).length === 0) {
       console.log('Empty clip object received, clearing all audio clips');
       newAudioClips = [];
       setAudioClips(newAudioClips);
       
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem(AUDIO_CLIPS_STORAGE_KEY);
+      if (typeof window !== 'undefined' && currentProjectId) {
+        try {
+          const projectSpecificKey = getAudioClipsStorageKey(currentProjectId);
+          localStorage.removeItem(projectSpecificKey);
+        } catch (error) {
+          console.error('Failed to remove audio clips from localStorage:', error);
+        }
       }
       
       if (videoRef.current) {
@@ -492,6 +677,15 @@ export default function Home() {
       console.log(`Clip with ID ${clip.id} exists in audioClips array: ${clipExists}`);
       
       if (clipExists) {
+        if (audioBlobUrls[clip.id]) {
+          URL.revokeObjectURL(audioBlobUrls[clip.id]);
+          setAudioBlobUrls(prev => {
+            const updated = {...prev};
+            delete updated[clip.id];
+            return updated;
+          });
+        }
+        
         newAudioClips = audioClips.filter(c => c.id !== clip.id);
         console.log(`Filtered audioClips, new length: ${newAudioClips.length}`);
         setAudioClips(newAudioClips);
@@ -539,27 +733,54 @@ export default function Home() {
       
       console.log('Exporting video from source:', videoSrc);
       
-      const audioClipsDataPromises = audioClips.map(async (clip) => ({
-        id: clip.id,
-        name: clip.name,
-        startTime: clip.startTime,
-        duration: clip.duration,
-        blobBase64: await blobToBase64(clip.blob)
+      const effectiveVideoTrimStart = videoTrimStart;
+      const effectiveVideoTrimEnd = videoTrimEnd;
+      
+      const trimDuration = effectiveVideoTrimEnd - effectiveVideoTrimStart;
+      console.log(`Exporting trimmed video segment: ${effectiveVideoTrimStart.toFixed(2)}s to ${effectiveVideoTrimEnd.toFixed(2)}s (duration: ${trimDuration.toFixed(2)}s)`);
+      
+      const adjustedAudioClips = audioClips.map(clip => {
+        const clipEnd = clip.startTime + clip.duration;
+        const overlapStart = Math.max(clip.startTime, effectiveVideoTrimStart);
+        const overlapEnd = Math.min(clipEnd, effectiveVideoTrimEnd);
+        
+        if (overlapEnd <= overlapStart) {
+          return null;
+        }
+        
+        const adjustedStartTime = Math.max(0, overlapStart - effectiveVideoTrimStart);
+        const adjustedDuration = overlapEnd - overlapStart;
+        
+        return {
+          ...clip,
+          exportStartTime: adjustedStartTime,
+          exportDuration: adjustedDuration
+        };
+      }).filter(Boolean);
+      
+      console.log(`Exporting ${adjustedAudioClips.length} adjusted audio clips`);
+      
+      const audioClipsDataPromises = adjustedAudioClips.map(async (clip) => ({
+        id: clip!.id,
+        name: clip!.name,
+        startTime: clip!.exportStartTime,
+        duration: clip!.exportDuration,
+        blobBase64: await blobToBase64(clip!.blob)
       }));
       
       const audioClipsData = await Promise.all(audioClipsDataPromises);
       
-      console.log(`Exporting video with ${audioClipsData.length} audio clips`);
+      console.log(`Preparing to export video with ${audioClipsData.length} audio clips`);
       
       const response = await fetch(exportEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           videoPath: videoSrc,
-          videoTrimStart,
-          videoTrimEnd,
-          audioTrimStart,
-          audioTrimEnd,
+          videoTrimStart: effectiveVideoTrimStart,
+          videoTrimEnd: effectiveVideoTrimEnd,
+          audioTrimStart: effectiveVideoTrimStart,
+          audioTrimEnd: effectiveVideoTrimEnd,
           audioClips: audioClipsData
         })
       });
