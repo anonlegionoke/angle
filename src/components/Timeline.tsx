@@ -802,6 +802,7 @@ const Timeline: React.FC<TimelineProps> = ({
             onAddAudioClip={handleAudioClipClick}
             onClose={() => setShowAudioManager(false)}
             currentTime={currentTime}
+            videoDuration={duration}
           />
         )}
       </div>
