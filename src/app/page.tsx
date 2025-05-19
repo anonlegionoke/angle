@@ -219,11 +219,21 @@ export default function Home() {
       const newCurrentTime = videoRef.current.currentTime;
       setCurrentTime(newCurrentTime);
       
+      if (newCurrentTime >= videoTrimEnd) {
+        stopAllSyncedAudio();
+        return;
+      }
+      
       if (audioClips && audioClips.length > 0) {
         audioClips.forEach(clip => {
           const clipEndTime = clip.startTime + clip.duration;
           
-          if (newCurrentTime >= clip.startTime && newCurrentTime < clipEndTime && !videoRef.current?.paused) {
+          if (newCurrentTime >= clip.startTime && 
+              newCurrentTime < clipEndTime && 
+              newCurrentTime >= videoTrimStart && 
+              newCurrentTime < videoTrimEnd && 
+              !videoRef.current?.paused) {
+            
             if (!syncedAudioPlayers[clip.id]) {
               console.log(`Starting synced playback of audio clip: ${clip.name}`);
               

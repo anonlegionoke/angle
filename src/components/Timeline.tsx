@@ -73,8 +73,6 @@ const Timeline: React.FC<TimelineProps> = ({
   const [playingClipId, setPlayingClipId] = useState<string | null>(null);
   const audioElementsRef = useRef<{[key: string]: HTMLAudioElement}>({});
 
-  console.log("Audio Clips",audioClips);
-
   useEffect(() => {
     if (duration <= 0) return;
     
@@ -239,8 +237,6 @@ const Timeline: React.FC<TimelineProps> = ({
       resizeObserver.disconnect();
     };
   }, [duration]);
-
-  console.log('draggingAudioClip',draggingAudioClip);
 
   useEffect(() => {
     if (!draggingAudioClip || !audioTrackRef.current || !onAddAudioClip) return;

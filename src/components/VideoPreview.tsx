@@ -52,19 +52,29 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     const video = videoRef.current;
     if (!video) return;
     
-    const handleTimeUpdateForLoop = () => {
-      if (isLoopingEnabled && video.currentTime >= videoTrimEnd) {
-        video.currentTime = videoTrimStart;
-        if (isPlaying) {
-          video.play().catch(err => console.error('Error playing video:', err));
+    if (video.currentTime < videoTrimStart) {
+      video.currentTime = videoTrimStart;
+    }
+    
+    const handleTimeUpdate = () => {
+      if (video.currentTime >= videoTrimEnd) {
+        if (isLoopingEnabled) {
+          video.currentTime = videoTrimStart;
+          if (isPlaying) {
+            video.play().catch(err => console.error('Error playing video:', err));
+          }
+        } else {
+          video.pause();
+          setIsPlaying(false);
+          video.currentTime = videoTrimStart;
         }
       }
     };
     
-    video.addEventListener('timeupdate', handleTimeUpdateForLoop);
+    video.addEventListener('timeupdate', handleTimeUpdate);
     
     return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdateForLoop);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
     };
   }, [videoRef, videoTrimStart, videoTrimEnd, isLoopingEnabled, isPlaying]);
   
