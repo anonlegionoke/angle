@@ -93,11 +93,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     setIsPlaying(!isPlaying);
   };
   
-  const handlePlayPause = () => {
-    if (!videoRef.current) return;
-    setIsPlaying(!videoRef.current.paused);
-  };
-  
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     onVolumeChange(newVolume);
