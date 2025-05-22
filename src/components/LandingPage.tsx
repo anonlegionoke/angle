@@ -117,6 +117,12 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
   const handleClearVideos = async () => {
     if (isClearing) return;
     
+    const isConfirmed = window.confirm('Are you sure you want to delete all projects? This action cannot be undone.');
+    
+    if (!isConfirmed) {
+      return;
+    }
+    
     setIsClearing(true);
     
     try {
