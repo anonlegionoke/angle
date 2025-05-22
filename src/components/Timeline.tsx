@@ -444,12 +444,6 @@ const Timeline: React.FC<TimelineProps> = ({
       {/* Timeline controls */}
       <div className="flex justify-between mb-2">
         <div className="flex gap-2">
-          <button 
-            onClick={onApplyTrim}
-            className="bg-editor-panel text-white border border-editor-border px-3 py-1 rounded hover:bg-editor-highlight cursor-pointer"
-          >
-            Apply Trim
-          </button>
           {renderExportButton()}
         </div>
         <div className="flex items-center gap-4">
