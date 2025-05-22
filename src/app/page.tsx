@@ -728,11 +728,8 @@ export default function Home() {
     setIsExporting(true);
     
     try {
-      const origin = window.location.origin;
-      const exportEndpoint = `${origin}/api/export`;
-      
-      console.log('Exporting video from source:', videoSrc);
-      
+      const exportEndpoint = '/api/export';
+            
       const effectiveVideoTrimStart = videoTrimStart;
       const effectiveVideoTrimEnd = videoTrimEnd;
       
@@ -775,6 +772,7 @@ export default function Home() {
       const response = await fetch(exportEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
         body: JSON.stringify({
           videoPath: videoSrc,
           videoTrimStart: effectiveVideoTrimStart,
@@ -792,7 +790,7 @@ export default function Home() {
       
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = 'exported-video.mp4';
-      
+
       if (contentDisposition) {
         const filenameMatch = contentDisposition.match(/filename="(.+)"/i);
         if (filenameMatch && filenameMatch[1]) {
