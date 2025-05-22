@@ -5,6 +5,7 @@ import VideoPreview from '@/components/VideoPreview';
 import Timeline from '@/components/Timeline';
 import PromptSidebar from '@/components/PromptSidebar';
 import LandingPage from '@/components/LandingPage';
+import LoadingOverlay from '@/components/LoadingOverlay';
 import { storeCurrentProject, getCurrentProject, Project, getAllProjects, getLatestProjectVideo } from '@/lib/projectUtils';
 import { AudioClip } from '@/components/AudioManager';
 
@@ -45,7 +46,10 @@ export default function Home() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState<boolean>(false);
   const [audioClips, setAudioClips] = useState<AudioClip[]>([]);
-  const [audioBlobUrls, setAudioBlobUrls] = useState<{[key: string]: string}>({}); 
+  const [audioBlobUrls, setAudioBlobUrls] = useState<{[key: string]: string}>({});
+  
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('Loading resources...'); 
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const sideBarDividerRef = useRef<HTMLDivElement | null>(null);
@@ -110,6 +114,9 @@ export default function Home() {
     const urlsToRevoke = new Map<string, string>();
     
     if (typeof window !== 'undefined' && currentProjectId) {
+      setIsLoading(true);
+      setLoadingMessage('Loading audio clips...');
+      
       const projectSpecificKey = getAudioClipsStorageKey(currentProjectId);
       const savedAudioClips = localStorage.getItem(projectSpecificKey);
       
@@ -158,10 +165,13 @@ export default function Home() {
           setAudioClips(restoredClips);
         } catch (error) {
           console.error('Failed to parse saved audio clips:', error);
+        } finally {
+          setIsLoading(false);
         }
       } else {
         setAudioClips([]);
         console.log(`No saved audio clips found for project ${currentProjectId}`);
+        setIsLoading(false);
       }
     }
     
@@ -265,6 +275,7 @@ export default function Home() {
       setAudioTrimEnd(videoDuration);
       
       console.log(`Video loaded: ${videoDuration}s`);
+      setIsLoading(false);
     }
   };
 
@@ -885,6 +896,9 @@ export default function Home() {
   };
 
   const handleStartProject = async (projectId: string) => {
+    setIsLoading(true);
+    setLoadingMessage('Loading project...');
+    
     try {
       const projects = await getAllProjects();
       
@@ -921,6 +935,8 @@ export default function Home() {
     } catch (error) {
       console.error('Error handling project:', error);
       alert('Failed to handle project. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -930,6 +946,7 @@ export default function Home() {
       }
       
       setCurrentProjectId(null);
+      setDuration(0);
       setShowEditor(false);
       setVideoSrc('');
   };
@@ -937,11 +954,21 @@ export default function Home() {
   useEffect(() => {
     async function fetchLatestVideo() {
       if (!currentProjectId) return;
-      const latestVideo = await getLatestProjectVideo(currentProjectId!);
-      if (latestVideo) {
-        setVideoSrc(latestVideo);
-      } else {
-        console.log('No previous videos found for this project');
+      
+      setIsLoading(true);
+      setLoadingMessage('Loading latest updates...');
+      
+      try {
+        const latestVideo = await getLatestProjectVideo(currentProjectId!);
+        if (latestVideo) {
+          setVideoSrc(latestVideo);
+        } else {
+          console.log('No previous videos found for this project');
+        }
+      } catch (error) {
+        console.error('Error fetching latest video:', error);
+      } finally {
+        setIsLoading(false);
       }
     }
     fetchLatestVideo();
@@ -953,6 +980,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-editor-bg text-white font-mono">
+      <LoadingOverlay isLoading={isLoading} message={loadingMessage} />
       <header className="p-4 text-center border-b border-editor-border relative">
         <h1 className="text-xl">Angle - AI Video Editor/Generator</h1>
         {currentProjectId && (
