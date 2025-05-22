@@ -29,29 +29,32 @@ const AudioManager: React.FC<AudioManagerProps> = ({ onAddAudioClip, onClose, cu
   const [trimDuration, setTrimDuration] = useState<number | null>(null);
   
   const handleAudioRecorded = (audioBlob: Blob, audioUrl: string, duration: number) => {
-    const remainingVideoDuration = videoDuration - currentTime;
-    
-    if (duration > remainingVideoDuration) {
+    if (duration > videoDuration) {
       setPendingAudioClip({
         blob: audioBlob,
         url: audioUrl,
         duration: duration
       });
-      setTrimDuration(remainingVideoDuration);
+      setTrimDuration(videoDuration);
       setShowTrimWarning(true);
-    } else {
-      const newClip: AudioClip = {
-        id: `audio-${Date.now()}`,
-        name: clipName,
-        url: audioUrl,
-        blob: audioBlob,
-        startTime: currentTime,
-        duration: duration
-      };
-      
-      onAddAudioClip(newClip);
-      onClose();
+      return;
     }
+    
+    const wouldExtendBeyond = currentTime + duration > videoDuration;
+    
+    const adjustedStartTime = wouldExtendBeyond ? Math.max(0, videoDuration - duration) : currentTime;
+    
+    const newClip: AudioClip = {
+      id: `audio-${Date.now()}`,
+      name: clipName,
+      url: audioUrl,
+      blob: audioBlob,
+      startTime: adjustedStartTime,
+      duration: duration
+    };
+    
+    onAddAudioClip(newClip);
+    onClose();
   };
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,29 +69,32 @@ const AudioManager: React.FC<AudioManagerProps> = ({ onAddAudioClip, onClose, cu
     const audio = new Audio(url);
     
     audio.onloadedmetadata = () => {
-      const remainingVideoDuration = videoDuration - currentTime;
-      
-      if (audio.duration > remainingVideoDuration) {
+      if (audio.duration > videoDuration) {
         setPendingAudioClip({
           blob: file,
           url: url,
           duration: audio.duration
         });
-        setTrimDuration(remainingVideoDuration);
+        setTrimDuration(videoDuration);
         setShowTrimWarning(true);
-      } else {
-        const newClip: AudioClip = {
-          id: `audio-${Date.now()}`,
-          name: clipName || file.name,
-          url: url,
-          blob: file,
-          startTime: currentTime,
-          duration: audio.duration
-        };
-        
-        onAddAudioClip(newClip);
-        onClose();
+        return;
       }
+      
+      const wouldExtendBeyond = currentTime + audio.duration > videoDuration;
+      
+      const adjustedStartTime = wouldExtendBeyond ? Math.max(0, videoDuration - audio.duration) : currentTime;
+      
+      const newClip: AudioClip = {
+        id: `audio-${Date.now()}`,
+        name: clipName || file.name,
+        url: url,
+        blob: file,
+        startTime: adjustedStartTime,
+        duration: audio.duration
+      };
+      
+      onAddAudioClip(newClip);
+      onClose();
     };
     
     audio.onerror = () => {
@@ -163,12 +169,12 @@ const AudioManager: React.FC<AudioManagerProps> = ({ onAddAudioClip, onClose, cu
                   <span className="text-white font-mono">{pendingAudioClip && formatTime(pendingAudioClip.duration)}</span>
                 </div>
                 <div className="flex justify-between mb-2">
-                  <span className="text-gray-400">Remaining video:</span>
-                  <span className="text-white font-mono">{trimDuration !== null && formatTime(trimDuration)}</span>
+                  <span className="text-gray-400">Video duration:</span>
+                  <span className="text-white font-mono">{trimDuration !== null && formatTime(videoDuration)}</span>
                 </div>
                 <div className="flex justify-between text-yellow-500">
                   <span>Excess duration:</span>
-                  <span className="font-mono">{pendingAudioClip && trimDuration !== null && formatTime(pendingAudioClip.duration - trimDuration)}</span>
+                  <span className="font-mono">{pendingAudioClip && trimDuration !== null && formatTime(pendingAudioClip.duration - videoDuration)}</span>
                 </div>
               </div>
               
