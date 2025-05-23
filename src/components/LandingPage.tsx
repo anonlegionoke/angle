@@ -167,13 +167,10 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
         </button>
       </div>
       <div className="text-center my-4">
-        <h1 className="text-5xl font-bold mb-6">Angle</h1>
-        <p className="text-xl mb-10">AI-Powered Video Editor & Generator</p>
-        
+      <h1 className="text-5xl font-bold mb-6"><span className="mr-2"><img src="/angle-glow-icon.png" alt="angle-logo" className="inline-block h-16 w-16" /></span>Angle</h1>
         <div className="w-full max-w-3xl mx-auto bg-gray-800 rounded-lg p-6 mb-10">
-          <p className="text-sm text-gray-400 mb-2">Featured</p>
           <h2 className="text-2xl mb-4">Create amazing videos with AI</h2>
-          <p>Edit and generate professional-quality videos in minutes with our cutting-edge AI technology.</p>
+          <p>Edit and generate professional-quality videos in minutes for your presentations, tutorials, and more.</p>
         </div>
       </div>
 
