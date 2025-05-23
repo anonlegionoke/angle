@@ -141,14 +141,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           </>
         ) : (
           <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
-            <span className="text-xl mb-4">MANIM VIDEO</span>
-            <p className="text-gray-400">{isClient && !videoSrc ? 'Enter a math prompt to generate a video' : 'Loading...'}</p>
+            <span className="text-xl mb-4">ANGLE VIDEO</span>
+            <p className="text-gray-400">{isClient && !videoSrc ? 'Enter a prompt to generate a video' : 'Loading...'}</p>
             <div className="text-sm text-gray-500 mt-4 max-w-md text-center px-4">
-              <p className="mb-2">Generate mathematical animations like 3Blue1Brown using Manim.</p>
+              <p className="mb-2">Generate presentation videos using AI.</p>
               <p className="mb-4">Try prompts like:</p>
               <ul className="text-left list-disc pl-8 space-y-1">
                 <li>"Show the Pythagorean theorem"</li>
-                <li>"Visualize sine and cosine on the unit circle"</li>
+                <li>"Visualize an ellipse"</li>
                 <li>"Transform a square to a circle"</li>
               </ul>
             </div>

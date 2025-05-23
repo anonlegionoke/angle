@@ -49,19 +49,20 @@ const sharedPromptRequirements = `Important rules:
 1. Keep the same scene name (GeneratedScene)
 2. Maintain the overall structure but add or modify animations as needed
 3. Keep all previous animations
-4. Add new animations that implement the new request
-5. Remove previous animation elements if user asks
+4. Add new animations without removing old ones
+5. Remove previous animation elements ONLY IF user asks
 6. Return ONLY the complete, updated code - no explanations or markdown
 7. First display title if exists and if there is contents inside it, move the title up and
    display explanations below
-8. Make sure no elements overlap one another
+8. Make sure NO OVERLAP BETWEEN TEXTS
 9. Whenever there is an example showing, make sure it takes center stage in the scene
 10. Make sure the returning python code is type-safe and high quality with no errors
-11. When explaining an example, move the main title to top left, make the size smaller so that the newer titles won't overlap it
+11. When explaining an example, remove the first main title
 12. First displaying text will be in the center when center is free, when new text comes, if there is space, display both in single line but with space justificaton between other wise dispaly below it
 13. Make sure the code is following strict type rules of manim
 14. DO NOT USE LATEX in the code, make it simple as possible
 15. Return complete ERROR FREE code
+16. PYTHON CODE SHOULD CLEAN, SIMPLE AND HIGH QUALITY
 
 Return ONLY the complete, updated Python code that fulfills these requirements.`;
 

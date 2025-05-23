@@ -991,8 +991,8 @@ export default function Home() {
   return (
     <div className="flex flex-col h-screen bg-editor-bg text-white font-mono">
       <LoadingOverlay isLoading={isLoading} message={loadingMessage} />
-      <header className="p-4 text-center border-b border-editor-border relative">
-        <h1 className="text-xl">Angle - AI Video Editor/Generator</h1>
+      <header className="p-2 text-left border-b border-editor-border relative">
+        <h1 className="text-xl"><span className="mr-2"><img src="/angle-glow-icon.png" alt="angle-logo" className="inline-block h-8 w-8" /></span>Angle - AI Video Maker</h1>
         {currentProjectId && (
           <p className="text-sm text-gray-400 mt-1">Project: {currentProjectId}</p>
         )}
