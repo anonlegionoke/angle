@@ -32,7 +32,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   useEffect(() => {
     const welcomeMessage: ChatMessage = {
       id: '1',
-      text: "I'll help you create 3Blue1Brown-style math animations. What would you like to visualize?",
+      text: "What would you like to visualize today?",
       isUser: false,
       timestamp: new Date(),
       status: 'sent'
@@ -120,7 +120,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       { id: '1', text: 'Show the Pythagorean theorem' },
       { id: '2', text: 'Transform a square to a circle' },
       { id: '3', text: 'Demonstrate vector fields' },
-      { id: '4', text: 'Explain the chain rule in calculus' }
+      { id: '4', text: 'Display a thank you note' }
     ]);
   }, []);
   
@@ -267,7 +267,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   
   const updateSuggestionPrompts = (userPrompt: string) => {
     const newSuggestions = [
-      { id: Date.now().toString(), text: 'Add voice narration to this animation' },
       { id: (Date.now() + 1).toString(), text: 'Make the animation slower' },
       { id: (Date.now() + 2).toString(), text: 'Add more visual elements' },
       { id: (Date.now() + 3).toString(), text: 'Change the color scheme' }
