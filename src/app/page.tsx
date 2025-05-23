@@ -941,6 +941,16 @@ export default function Home() {
   };
 
   const handleExitProject = async () => {
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.currentTime = 0;
+      }
+      
+      Object.values(syncedAudioPlayers).forEach(audio => {
+        audio.pause();
+      });
+      setSyncedAudioPlayers({});
+      
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentProjectId');
       }
