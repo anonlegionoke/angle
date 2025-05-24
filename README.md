@@ -42,10 +42,21 @@ Visit `http://localhost:3000` to start creating animations!
 
 ## 🛠️ Technical Stack
 
-- Next.js for the frontend
+- Latest Next.js
 - Google's Gemini AI for intelligent animation generation
+- Supabase for Database
 - Manim community animation engine for professional output
 - Real-time preview and editing capabilities
+
+## ⚙️ Render Engine
+
+The render engine is a separate component that handles the generation of Python code and video creation using Manim. It's responsible for:
+
+- Converting AI-generated descriptions into Python code
+- Managing the Manim animation pipeline
+- Handling video rendering and export
+
+The render engine is maintained as a separate repository. You can find it here: [angle-render-engine](https://github.com/anonlegionoke/angle-render-worker)
 
 ## 📝 Example Prompts
 
