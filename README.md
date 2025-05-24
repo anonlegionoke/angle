@@ -31,6 +31,28 @@ npm run dev
 
 Visit `http://localhost:3000` to start creating animations!
 
+### Render Worker Setup
+
+The render worker is a Python service that handles animation generation. To set it up:
+
+```bash
+# Clone the render worker repository
+git clone https://github.com/anonlegionoke/angle-render-worker.git
+cd angle-render-worker
+
+# Create and activate a virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the render worker
+uvicorn app:app --reload
+```
+
+The render worker will be available at `http://localhost:8000` by default.
+
 ## 🎨 What You Can Create
 
 - Educational animations and visualizations
