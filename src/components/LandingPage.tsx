@@ -3,18 +3,15 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Project, getAllProjects } from '@/lib/projectUtils';
+import { Project, getAllProjects, storeCurrentProject } from '@/lib/projectUtils';
 import { createClient } from '@/utils/supabase/client';
 
-interface LandingPageProps {
-  onStartProject: (projectId: string) => void;
-}
 
 export const generateProjectId = () => {
   return `project_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
-export default function LandingPage({ onStartProject }: LandingPageProps) {
+export default function LandingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
@@ -63,18 +60,32 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
     
     try {
       const projectId = generateProjectId();
-      
-      onStartProject(projectId);
-      
+      try {
+                
+        if (projectId) {
+          const createResponse = await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId })
+          });
+          
+          if (!createResponse.ok) {
+            throw new Error('Failed to create project directory');
+          }
+          
+          const createData = await createResponse.json();
+          console.log('New project created:', createData);
+        }
+        storeCurrentProject(projectId);
+      } catch (error) {
+        console.error('Error handling project:', error);
+        alert('Failed to handle project. Please try again.');
+      }
+      router.push(`/editor/${projectId}`);
     } catch (error) {
       console.error('Error creating project:', error);
       setIsLoading(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
   const getProjectName = (projectId: string) => {
@@ -264,7 +275,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
                 <div 
                   key={project.id} 
                   className="bg-gray-800 rounded-lg p-5 cursor-pointer hover:bg-gray-700 transition-colors border border-gray-700 flex flex-col"
-                  onClick={() => onStartProject(project.id)}
+                  onClick={() => router.push(`/editor/${project.id}`)}
                 >
                   <div className="flex items-center mb-3">
                     <div className="bg-blue-500 rounded-full w-10 h-10 flex items-center justify-center text-white font-bold mr-3">

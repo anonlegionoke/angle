@@ -1,20 +1,14 @@
-export function storeCurrentProject(projectId: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('currentProjectId', projectId);
-  }
-}
-
-export function getCurrentProject(): string | null {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem('currentProjectId');
-  }
-  return null;
-}
-
+import { createClient } from "@/utils/supabase/server";
 export interface Project {
   id: string;
   createdAt: string;
   timestamp: string;
+}
+
+export function storeCurrentProject(projectId: string): void {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('currentProjectId', projectId);
+  }
 }
 
 export async function getAllProjects(): Promise<Project[]> {
