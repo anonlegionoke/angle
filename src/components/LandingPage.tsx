@@ -177,7 +177,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
             initial={{ x: 200 }}
             animate={{ x: 0 }}
             transition={{ 
-              duration: 2, 
+              duration: 1.5, 
               type: "spring", 
               stiffness: 40,
               damping: 12
@@ -190,7 +190,7 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ 
-              duration: 2, 
+              duration: 1, 
               delay: 1, 
               type: "spring", 
               stiffness: 40

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import VideoPreview from '@/components/VideoPreview';
 import Timeline from '@/components/Timeline';
 import PromptSidebar from '@/components/PromptSidebar';
@@ -48,7 +49,7 @@ export default function Home() {
   const [audioClips, setAudioClips] = useState<AudioClip[]>([]);
   const [audioBlobUrls, setAudioBlobUrls] = useState<{[key: string]: string}>({});
   
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadingMessage, setLoadingMessage] = useState<string>('Loading resources...'); 
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -58,7 +59,8 @@ export default function Home() {
   const getAudioClipsStorageKey = (projectId: string | null) => {
     return projectId ? `angle_audio_clips_${projectId}` : 'angle_audio_clips';
   };
-  const AUDIO_CLIPS_STORAGE_KEY = getAudioClipsStorageKey(currentProjectId);
+  
+  const [showDarkIcon, setShowDarkIcon] = useState(false);
   
   useEffect(() => {
     console.log('App initialized, ready for video generation');
@@ -935,8 +937,6 @@ export default function Home() {
     } catch (error) {
       console.error('Error handling project:', error);
       alert('Failed to handle project. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -984,7 +984,27 @@ export default function Home() {
     fetchLatestVideo();
   }, [currentProjectId]);  
 
-  if (!showEditor) {
+  useEffect(() => {
+    if (showEditor) {
+      const timer = setTimeout(() => {
+        setShowDarkIcon(true);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowDarkIcon(false);
+    }
+  }, [showEditor]);
+
+  useEffect(() => {
+    if (isLoading && !showEditor) {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, showEditor]);
+
+  if (!showEditor && !isLoading) {
     return <LandingPage onStartProject={handleStartProject} />;
   }
 
@@ -992,7 +1012,27 @@ export default function Home() {
     <div className="flex flex-col h-screen bg-editor-bg text-white font-mono">
       <LoadingOverlay isLoading={isLoading} message={loadingMessage} />
       <header className="p-2 text-left border-b border-editor-border relative">
-        <h1 className="text-xl"><span className="mr-2"><img src="/angle-glow-icon.png" alt="angle-logo" className="inline-block h-8 w-8" /></span>Angle - AI Video Maker</h1>
+        <h1 className="text-xl">
+          <span className="mr-2">
+            {showEditor && showDarkIcon ? (
+              <motion.img
+                src="/angle-glow-icon.png"
+                alt="angle-logo"
+                className="inline-block h-8 w-8 mb-1"
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ 
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 20
+                }}
+              />
+            ) : (
+              <img src="/angle-glow-icon_light.png" alt="angle-logo" className="inline-block h-8 w-8 mb-1" />
+            )}
+          </span>
+          Angle - AI Video Maker
+        </h1>
         {currentProjectId && (
           <p className="text-sm text-gray-400 mt-1">Project: {currentProjectId}</p>
         )}
