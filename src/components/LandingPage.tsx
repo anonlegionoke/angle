@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { Project, getAllProjects } from '@/lib/projectUtils';
 import { createClient } from '@/utils/supabase/client';
@@ -167,7 +168,38 @@ export default function LandingPage({ onStartProject }: LandingPageProps) {
         </button>
       </div>
       <div className="text-center my-4">
-      <h1 className="text-5xl font-bold mb-6"><span className="mr-2"><img src="/angle-glow-icon_light.png" alt="angle-logo" className="inline-block h-16 w-16" /></span>Angle</h1>
+      <h1 className="text-5xl font-bold mb-4 relative overflow-hidden">
+        <motion.div
+          className="inline-flex items-center"
+        >
+          <motion.span 
+            className="inline-block"
+            initial={{ x: 200 }}
+            animate={{ x: 0 }}
+            transition={{ 
+              duration: 1.5, 
+              type: "spring", 
+              stiffness: 40,
+              damping: 12
+            }}
+          >
+            <img src="/angle-glow-icon_light.png" alt="angle-logo" className="inline-block h-16 w-16 mr-2 mb-2" />
+          </motion.span>
+          <motion.span 
+            className="inline-block text-5xl"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ 
+              duration: 1, 
+              delay: 1, 
+              type: "spring", 
+              stiffness: 40
+            }}
+          >
+            Angle
+          </motion.span>
+        </motion.div>
+      </h1>
         <div className="w-full max-w-3xl mx-auto bg-gray-800 rounded-lg p-6 mb-10">
           <h2 className="text-2xl mb-4">Create amazing videos with AI</h2>
           <p>Edit and generate professional-quality videos in minutes for your presentations, tutorials, and more.</p>
