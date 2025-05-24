@@ -93,8 +93,9 @@ Return the complete, modified Python code:`;
 
 const getGeminiCode = async (prompt: string, projectId: string) => {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
-  const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const geminiModel = process.env.GEMINI_MODEL!;
+  if (!apiKey || !geminiModel) throw new Error('GEMINI_API_KEY not set or invalid GEMINI_MODEL');
+  const model = new GoogleGenerativeAI(apiKey).getGenerativeModel({ model: geminiModel });
 
   let fullPrompt: string;
   
