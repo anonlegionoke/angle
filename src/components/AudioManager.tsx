@@ -11,6 +11,8 @@ export interface AudioClip {
   startTime: number;
   duration: number;
   _delete?: boolean;
+  blobData?: string;
+  blobType?: string;
 }
 
 interface AudioManagerProps {

@@ -199,9 +199,7 @@ export async function POST(request: NextRequest) {
     tempFiles.push(exportPath);
 
     let ffmpegCommand = '';
-    
-    const hasTrimming = true;
-    
+        
     const effectiveVideoTrimStart = typeof videoTrimStart === 'number' && !isNaN(videoTrimStart) ? videoTrimStart : 0;
     const effectiveVideoTrimEnd = typeof videoTrimEnd === 'number' && !isNaN(videoTrimEnd) && videoTrimEnd < Infinity ? videoTrimEnd : 300; 
     
@@ -215,9 +213,7 @@ export async function POST(request: NextRequest) {
     
     const filterComplexFile = path.join(tmpDir, `filter-${uuidv4()}.txt`);
     tempFiles.push(filterComplexFile);
-    
-    let filterComplex = '';
-    
+        
     const tempSegmentPath = path.join(tempDir, `segment-${uuidv4()}.mp4`);
     tempFiles.push(tempSegmentPath);
     

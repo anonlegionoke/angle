@@ -21,6 +21,13 @@ interface SuggestionPrompt {
   text: string;
 }
 
+export type Prompt = {
+  id: string;
+  usrMsg: string;
+  timestamp: Date;
+  llmRes: string;
+}
+
 const PromptSidebar: React.FC<PromptSidebarProps> = ({
   onPromptSubmit,
   isGenerating,
@@ -58,13 +65,13 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
           
           messages.push(welcomeMessage);
           
-          data.prompts.forEach((prompt: any) => {
+          data.prompts.forEach((prompt: Prompt) => {
             messages.push({
               id: `sent-${prompt.id}`,
               text: prompt.usrMsg,
               isUser: true,
               timestamp: new Date(prompt.timestamp),
-              status: 'sent' as 'sent'
+              status: 'sent'
             });
             
             if (prompt.llmRes) {
@@ -75,7 +82,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                   text: `Error: ${llmRes.error}`,
                   isUser: false,
                   timestamp: new Date(prompt.timestamp),
-                  status: 'error' as 'error'
+                  status: 'error'
                 });
               } 
               else if (llmRes.code) {
@@ -84,7 +91,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                   text: `\`\`\`python\n${llmRes.code}\n\`\`\``,
                   isUser: false,
                   timestamp: new Date(prompt.timestamp),
-                  status: 'sent' as 'sent'
+                  status: 'sent'
                 });
                 
                 if (llmRes.videoPath) {
@@ -93,7 +100,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                     text: "Manim animation generated successfully! You can view it in the preview section.",
                     isUser: false,
                     timestamp: new Date(prompt.timestamp),
-                    status: 'sent' as 'sent'
+                    status: 'sent'
                   });
                 }
               } 
@@ -111,7 +118,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     };
     
     fetchChatLogs();
-  }, []);
+  }, [projectId]);
   
   const [suggestionPrompts, setSuggestionPrompts] = useState<SuggestionPrompt[]>([]);
   
@@ -161,7 +168,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 
     setPrompt('');
     
-    updateSuggestionPrompts(promptText);
+    updateSuggestionPrompts();
     
     try {
       const response = await fetch('/api/generate', {
@@ -229,7 +236,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       };
       setChatMessages(prev => [...prev, successMessage]);
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error generating animation:', error);
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
@@ -265,7 +272,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     }
   };
   
-  const updateSuggestionPrompts = (userPrompt: string) => {
+  const updateSuggestionPrompts = () => {
     const newSuggestions = [
       { id: (Date.now() + 1).toString(), text: 'Make the animation slower' },
       { id: (Date.now() + 2).toString(), text: 'Add more visual elements' },

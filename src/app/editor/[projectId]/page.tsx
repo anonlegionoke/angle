@@ -125,7 +125,7 @@ export default function Editor() {
         try {
           const parsedClips = JSON.parse(savedAudioClips);
           
-          const restoredClips = parsedClips.map((clip: any) => {
+          const restoredClips = parsedClips.map((clip: AudioClip) => {
             let blob;
             let url = '';
             
@@ -466,10 +466,8 @@ export default function Editor() {
   };
 
   const checkLocalStorageSpace = (): { used: number, available: number } => {
-    let total = 0;
-    let data = "";
-    
-    for (let key in localStorage) {
+    let total = 0;    
+    for (const key in localStorage) {
       if (localStorage.hasOwnProperty(key)) {
         const value = localStorage.getItem(key) || "";
         total += getStringByteSize(key) + getStringByteSize(value);
@@ -529,8 +527,8 @@ export default function Editor() {
         try {
           localStorage.setItem(projectSpecificKey, JSON.stringify(clipsForStorage));
         } catch (e) {
-          console.error('Failed to save even basic clip metadata. Clearing old data and retrying.');
-          for (let key in localStorage) {
+          console.error('Failed to save even basic clip metadata. Clearing old data and retrying.', e);
+          for (const key in localStorage) {
             if (key.startsWith('angle_audio_clips_') && key !== projectSpecificKey) {
               localStorage.removeItem(key);
               console.log(`Removed old audio data: ${key}`);
@@ -564,14 +562,14 @@ export default function Editor() {
             const currentStorage = localStorage.getItem(projectSpecificKey);
             if (currentStorage) {
               const currentClips = JSON.parse(currentStorage);
-              const clipIndex = currentClips.findIndex((c: any) => c.id === clip.id);
+              const clipIndex = currentClips.findIndex((c: AudioClip) => c.id === clip.id);
               
               if (clipIndex >= 0) {
                 currentClips[clipIndex].blobData = base64Content;
                 try {
                   localStorage.setItem(projectSpecificKey, JSON.stringify(currentClips));
                 } catch (storageError) {
-                  console.warn(`Storage quota exceeded for clip ${i+1}/${sortedClips.length}. Saving without blob data.`);
+                  console.warn(`Storage quota exceeded for clip ${i+1}/${sortedClips.length}. Saving without blob data.`, storageError);
                   currentClips[clipIndex].blobData = '';
                   localStorage.setItem(projectSpecificKey, JSON.stringify(currentClips));
                   break;

@@ -1,4 +1,3 @@
-import { createClient } from "@/utils/supabase/server";
 export interface Project {
   id: string;
   createdAt: string;

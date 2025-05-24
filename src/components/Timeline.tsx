@@ -43,10 +43,8 @@ const Timeline: React.FC<TimelineProps> = ({
   onVideoTrimEndChange,
   onAudioTrimStartChange,
   onAudioTrimEndChange,
-  onApplyTrim,
   onExport,
   onResetVideoTrim,
-  onResetAudioTrim,
   sidebarWidth = 240,
   isExporting = false,
   onAddAudioClip,
@@ -144,36 +142,9 @@ const Timeline: React.FC<TimelineProps> = ({
     onVideoTrimEndChange(newTime);
   };
   
-  const handleAudioStartTrim = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const rect = audioTrackRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    
-    const clickPosition = (e.clientX - rect.left) / rect.width;
-    const newTime = Math.max(0, Math.min(audioTrimEnd - 0.5, clickPosition * duration));
-    onAudioTrimStartChange(newTime);
-  };
-  
-  const handleAudioEndTrim = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const rect = audioTrackRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    
-    const clickPosition = (e.clientX - rect.left) / rect.width;
-    const newTime = Math.max(audioTrimStart + 0.5, Math.min(duration, clickPosition * duration));
-    onAudioTrimEndChange(newTime);
-  };
-  
   const handleVideoTrackMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (draggingState.isDragging) {
       const newTime = getTimeFromPosition(e.clientX, videoTrackRef);
-      onScrub(newTime);
-    }
-  };
-  
-  const handleAudioTrackMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (draggingState.isDragging) {
-      const newTime = getTimeFromPosition(e.clientX, audioTrackRef);
       onScrub(newTime);
     }
   };
@@ -248,7 +219,6 @@ const Timeline: React.FC<TimelineProps> = ({
     const pixelsPerSecond = trackRect.width / duration;
     
     let animationFrameId: number | null = null;
-    let lastMouseX = initialX;
     
     const handleAudioClipDrag = (e: MouseEvent) => {
       e.preventDefault();
@@ -282,7 +252,6 @@ const Timeline: React.FC<TimelineProps> = ({
           }
         }
         
-        lastMouseX = e.clientX;
       });
     };
     
@@ -376,14 +345,6 @@ const Timeline: React.FC<TimelineProps> = ({
     seekToTime(videoTrimEnd);
   };
   
-  const seekToAudioStart = () => {
-    seekToTime(audioTrimStart);
-  };
-  
-  const seekToAudioEnd = () => {
-    seekToTime(audioTrimEnd);
-  };
-  
   const setVideoStartToCurrent = () => {
     if (currentTime < videoTrimEnd - 0.5) {
       onVideoTrimStartChange(currentTime);
@@ -393,18 +354,6 @@ const Timeline: React.FC<TimelineProps> = ({
   const setVideoEndToCurrent = () => {
     if (currentTime > videoTrimStart + 0.5) {
       onVideoTrimEndChange(currentTime);
-    }
-  };
-  
-  const setAudioStartToCurrent = () => {
-    if (currentTime < audioTrimEnd - 0.5) {
-      onAudioTrimStartChange(currentTime);
-    }
-  };
-  
-  const setAudioEndToCurrent = () => {
-    if (currentTime > audioTrimStart + 0.5) {
-      onAudioTrimEndChange(currentTime);
     }
   };
 

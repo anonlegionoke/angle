@@ -12,7 +12,6 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded, onCancel
   const [recordingTime, setRecordingTime] = useState<number>(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [visualizerData, setVisualizerData] = useState<number[]>(Array(50).fill(0));
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -112,9 +111,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onAudioRecorded, onCancel
         }
         sampledData[i] = sum / sampleSize;
       }
-      
-      setVisualizerData(sampledData);
-      
+            
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext('2d');
