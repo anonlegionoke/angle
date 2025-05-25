@@ -967,7 +967,7 @@ export default function Editor() {
                 <motion.img
                   key="dark"
                   src="/angle-glow-icon.png"
-                  alt="angle-logo"
+                  alt="<"
                   className="inline-block h-8 w-8 mb-1"
                   initial={{ y: -20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -981,7 +981,7 @@ export default function Editor() {
                 <motion.img
                   key="light"
                   src="/angle-glow-icon_light.png"
-                  alt="angle-logo"
+                  alt="<"
                   className="inline-block h-8 w-8 mb-1"
                   initial={{ y: -20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}

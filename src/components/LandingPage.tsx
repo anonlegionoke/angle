@@ -194,7 +194,7 @@ export default function LandingPage() {
               damping: 12
             }}
           >
-            <img src="/angle-glow-icon_light.png" alt="angle-logo" className="inline-block h-16 w-16 mr-2 mb-2" />
+            <img src="/angle-glow-icon_light.png" alt="<" className="inline-block h-16 w-16 mr-2 mb-2" />
           </motion.span>
           <motion.span 
             className="inline-block text-5xl"
