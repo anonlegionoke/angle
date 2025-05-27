@@ -373,7 +373,7 @@ const Timeline: React.FC<TimelineProps> = ({
   const renderExportButton = () => {
     return (
       <button
-        className={`px-3 py-1 text-sm rounded ${isExporting ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'}`}
+        className={`px-3 py-1 text-sm rounded ${isExporting ? 'bg-gray-600 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 cursor-pointer'}`}
         onClick={onExport}
         disabled={isExporting}
       >
@@ -431,19 +431,19 @@ const Timeline: React.FC<TimelineProps> = ({
             <div className="flex gap-2">
               <button 
                 onClick={setVideoStartToCurrent}
-                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 cursor-pointer"
+                className="text-xs bg-purple-900 text-white px-2 py-1 rounded hover:bg-purple-900 cursor-pointer"
               >
                 Set Start
               </button>
               <button 
                 onClick={setVideoEndToCurrent}
-                className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 cursor-pointer"
+                className="text-xs bg-purple-900 text-white px-2 py-1 rounded hover:bg-purple-900 cursor-pointer"
               >
                 Set End
               </button>
               <button 
                 onClick={onResetVideoTrim}
-                className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 cursor-pointer"
+                className="text-xs text-white border px-2 py-1 rounded cursor-pointer"
                 title="Reset video trim points to the full duration"
               >
                 Reset Trim
@@ -533,7 +533,7 @@ const Timeline: React.FC<TimelineProps> = ({
             <div className="flex gap-2">
               <button 
                 onClick={handleAddAudioClick}
-                className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 flex items-center gap-1 cursor-pointer"
+                className="text-xs bg-green-800 text-white px-2 py-1 rounded hover:bg-green-700 flex items-center gap-1 cursor-pointer"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                   <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
