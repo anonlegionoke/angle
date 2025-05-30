@@ -1,10 +1,10 @@
 import path from 'path';
 import fs from 'fs';
-import { exec } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import { Readable } from 'stream';
 import { ReadableStream as WebReadableStream } from 'stream/web';
 import { NextResponse } from 'next/server';
+import ffmpeg from 'fluent-ffmpeg';
 
 const THUMBNAILS_DIR = '/tmp/thumbnails';
 const TMP_DIR = '/tmp';
@@ -25,11 +25,10 @@ function ensureDirectories() {
 
 function getVideoDuration(filePath: string): Promise<number> {
   return new Promise((resolve, reject) => {
-    const cmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
-    exec(cmd, (error, stdout) => {
-      if (error) return reject(error);
-      const duration = parseFloat(stdout);
-      if (isNaN(duration)) {
+    ffmpeg.ffprobe(filePath, (err, metadata) => {
+      if (err) return reject(err);
+      const duration = metadata.format.duration;
+      if (!duration) {
         reject(new Error("Invalid duration"));
       } else {
         resolve(duration);
@@ -67,13 +66,16 @@ export async function POST(request: Request) {
     });
 
     const duration = await getVideoDuration(inputPath);
-
-    const frameCount = Math.max(1, Math.floor(duration / 2)); 
-
-    const cmd = `ffmpeg -i "${inputPath}" -vf "fps=${frameCount / duration}" -vframes ${frameCount} "${THUMBNAILS_DIR}/thumb_${id}_%02d.jpg"`;
+    const frameCount = Math.max(1, Math.floor(duration / 2));
 
     await new Promise<void>((resolve, reject) => {
-      exec(cmd, (err) => (err ? reject(err) : resolve()));
+      ffmpeg(inputPath)
+        .fps(frameCount / duration)
+        .frames(frameCount)
+        .output(path.join(THUMBNAILS_DIR, `thumb_${id}_%02d.jpg`))
+        .on('end', () => resolve())
+        .on('error', (err) => reject(err))
+        .run();
     });
 
     if (fs.existsSync(inputPath)) {

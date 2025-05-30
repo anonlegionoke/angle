@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node"
+    }
+  ],
+  "functions": {
+    "api/frames/route.ts": {
+      "memory": 3008,
+      "maxDuration": 60
+    }
+  }
+} 

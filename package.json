@@ -13,6 +13,7 @@
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "@types/uuid": "^10.0.0",
+    "fluent-ffmpeg": "^2.1.2",
     "framer-motion": "^12.12.1",
     "next": "15.3.1",
     "react": "^19.0.0",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/fluent-ffmpeg": "^2.1.24",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
