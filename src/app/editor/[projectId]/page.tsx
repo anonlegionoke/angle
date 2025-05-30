@@ -925,24 +925,29 @@ export default function Editor() {
         videoRef.current.pause();
         videoRef.current.currentTime = 0;
       }
-      
+  
       Object.values(syncedAudioPlayers).forEach(audio => {
         audio.pause();
       });
       setSyncedAudioPlayers({});
-      
+  
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentProjectId');
       }
-      
+  
       setDuration(0);
       setVideoSrc('');
+  
+      await fetch('/api/frames', {
+        method: 'DELETE',
+      });
+  
       router.push('/');
     } catch (error) {
       console.error('Error exiting project:', error);
       setIsExiting(false);
     }
-  };
+  };  
 
   useEffect(() => {
     if (currentProjectId) {
@@ -1069,6 +1074,7 @@ export default function Editor() {
             audioClips={audioClips}
             onAddAudioClip={handleAddAudioClip}
             onRemoveAudioClip={handleRemoveAudioClip}
+            videoSrc={videoSrc}
           />
           </div>
         </div>
