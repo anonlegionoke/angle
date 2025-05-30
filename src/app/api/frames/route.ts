@@ -6,8 +6,8 @@ import { Readable } from 'stream';
 import { ReadableStream as WebReadableStream } from 'stream/web';
 import { NextResponse } from 'next/server';
 
-const THUMBNAILS_DIR = path.join(process.cwd(), 'public', 'thumbnails');
-const TMP_DIR = path.join(process.cwd(), 'tmp');
+const THUMBNAILS_DIR = '/tmp/thumbnails';
+const TMP_DIR = '/tmp';
 
 function ensureDirectories() {
   try {
