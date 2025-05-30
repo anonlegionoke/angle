@@ -24,6 +24,7 @@ interface TimelineProps {
   onAddAudioClip?: (clip: AudioClip) => void;
   onRemoveAudioClip?: (clipId: string) => void;
   audioClips?: AudioClip[];
+  videoSrc?: string;
 }
 
 interface TimeMarker {
@@ -49,7 +50,8 @@ const Timeline: React.FC<TimelineProps> = ({
   isExporting = false,
   onAddAudioClip,
   onRemoveAudioClip,
-  audioClips = []
+  audioClips = [],
+  videoSrc
 }) => {
   const [draggingState, setDraggingState] = useState({
     isDragging: false,
@@ -63,6 +65,7 @@ const Timeline: React.FC<TimelineProps> = ({
   const [showAudioManager, setShowAudioManager] = useState(false);
   const [selectedAudioClip, setSelectedAudioClip] = useState<string | null>(null);
   const [draggingAudioClip, setDraggingAudioClip] = useState<{ id: string; initialX: number; initialStartTime: number } | null>(null);
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
   
   const timelineRef = useRef<HTMLDivElement>(null);
   const videoTrackRef = useRef<HTMLDivElement>(null);
@@ -388,6 +391,31 @@ const Timeline: React.FC<TimelineProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (!videoSrc) return;
+  
+    const fetchThumbnails = async () => {
+      try {
+        const res = await fetch('/api/frames', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ videoUrl: videoSrc }),
+        });
+  
+        const data = await res.json();
+        if (data.thumbnails) {
+          setThumbnails(data.thumbnails);
+        }
+      } catch (err) {
+        console.error('Failed to generate thumbnails:', err);
+      }
+    };
+  
+    fetchThumbnails();
+  }, [videoSrc]);
+
   return (
     <div className="flex-1 flex flex-col p-4 min-h-[300px] bg-editor-bg select-none">
       {/* Timeline controls */}
@@ -481,15 +509,33 @@ const Timeline: React.FC<TimelineProps> = ({
                 style={{ left: scrubberPosition }}
               />
               
-              {/* Video clip */}
+              {/* Video clip with thumbnails */}
               <div 
-                className="absolute h-[80%] top-[10%] bg-editor-highlight rounded group cursor-move select-none"
+                className="absolute h-[80%] top-[10%] bg-editor-highlight rounded group cursor-move select-none overflow-hidden"
                 style={{ 
                   left: videoClipStartPosition, 
                   width: videoClipWidth,
                   transformOrigin: 'left'
                 }}
               >
+                {/* Thumbnails grid */}
+                {thumbnails.length > 0 && (
+                  <div className="absolute inset-0 flex items-center h-full">
+                    {thumbnails.map((thumbnail, index) => (
+                      <div
+                        key={index}
+                        className="w-[60px] h-[35px] flex-shrink-0 border border-editor-border bg-black/60 rounded mr-[5px] overflow-hidden flex items-center justify-center"
+                      >
+                        <img
+                          src={thumbnail}
+                          // alt={`Frame ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Trim handles */}
                 <div 
                   className="absolute left-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none" 
