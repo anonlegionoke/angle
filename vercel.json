@@ -1,14 +1,9 @@
 {
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/node"
-    }
-  ],
   "functions": {
     "api/frames/route.ts": {
       "memory": 3008,
-      "maxDuration": 60
+      "maxDuration": 60,
+      "runtime": "@vercel/node@2.15.8"
     }
   }
 } 
