@@ -1,9 +1,8 @@
 {
   "functions": {
-    "api/frames/route.ts": {
+    "app/api/**/*": {
       "memory": 3008,
-      "maxDuration": 60,
-      "runtime": "@vercel/node@2.15.8"
+      "maxDuration": 60
     }
   }
 } 
