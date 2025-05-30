@@ -29,7 +29,11 @@ function getVideoDuration(filePath: string): Promise<number> {
     exec(cmd, (error, stdout) => {
       if (error) return reject(error);
       const duration = parseFloat(stdout);
-      isNaN(duration) ? reject(new Error("Invalid duration")) : resolve(duration);
+      if (isNaN(duration)) {
+        reject(new Error("Invalid duration"));
+      } else {
+        resolve(duration);
+      }
     });
   });
 }
