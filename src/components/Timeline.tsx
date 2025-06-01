@@ -519,16 +519,16 @@ const Timeline: React.FC<TimelineProps> = ({
                 }}
               >
                 {/* Thumbnails grid */}
-                {thumbnails.length > 0 && (
-                  <div className="absolute inset-0 flex items-center h-full">
+                {thumbnails?.length > 0 && (
+                  <div className="absolute inset-0 flex items-center h-full justify-between gap-1">
                     {thumbnails.map((thumbnail, index) => (
                       <div
                         key={index}
-                        className="w-[60px] h-[35px] flex-shrink-0 border border-editor-border bg-black/60 rounded mr-[5px] overflow-hidden flex items-center justify-center"
+                        className="h-[35px] flex-shrink-0 border-2 border-editor-border bg-black/60 rounded overflow-hidden flex items-center justify-center"
+                        style={{ width: `${100 / thumbnails.length}%` }}
                       >
                         <img
                           src={thumbnail}
-                          // alt={`Frame ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
                       </div>

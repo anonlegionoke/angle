@@ -9,17 +9,45 @@ import { NextResponse } from 'next/server';
 const THUMBNAILS_DIR = path.join(process.cwd(), 'public', 'thumbnails');
 const TMP_DIR = path.join(process.cwd(), 'tmp');
 
+function ensureDirectories() {
+  try {
+    if (!fs.existsSync(THUMBNAILS_DIR)) {
+      fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(TMP_DIR)) {
+      fs.mkdirSync(TMP_DIR, { recursive: true });
+    }
+  } catch (error) {
+    console.error('Error creating directories:', error);
+    throw error;
+  }
+}
+
+function getVideoDuration(filePath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const cmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+    exec(cmd, (error, stdout) => {
+      if (error) return reject(error);
+      const duration = parseFloat(stdout);
+      if (isNaN(duration)) {
+        reject(new Error("Invalid duration"));
+      } else {
+        resolve(duration);
+      }
+    });
+  });
+}
+
 export async function POST(request: Request) {
   try {
+    ensureDirectories();
+
     const body = await request.json();
     const { videoUrl } = body;
 
     if (!videoUrl) {
       return NextResponse.json({ error: 'Missing videoUrl' }, { status: 400 });
     }
-
-    fs.mkdirSync(TMP_DIR, { recursive: true });
-    fs.mkdirSync(THUMBNAILS_DIR, { recursive: true });
 
     const id = uuidv4();
     const inputPath = path.join(TMP_DIR, `${id}.mp4`);
@@ -38,8 +66,11 @@ export async function POST(request: Request) {
       fileStream.on('error', reject);
     });
 
-    // Max 10 frames
-    const cmd = `ffmpeg -i "${inputPath}" -vf "fps=1" -vframes 10 "${THUMBNAILS_DIR}/thumb_${id}_%02d.jpg"`;
+    const duration = await getVideoDuration(inputPath);
+
+    const frameCount = Math.max(1, Math.floor(duration / 2)); 
+
+    const cmd = `ffmpeg -i "${inputPath}" -vf "fps=${frameCount / duration}" -vframes ${frameCount} "${THUMBNAILS_DIR}/thumb_${id}_%02d.jpg"`;
 
     await new Promise<void>((resolve, reject) => {
       exec(cmd, (err) => (err ? reject(err) : resolve()));
@@ -49,8 +80,8 @@ export async function POST(request: Request) {
       fs.unlinkSync(inputPath);
     }
 
-    const thumbnails = Array.from({ length: 10 }, (_, i) =>
-      `/thumbnails/thumb_${id}_` + i.toString().padStart(2, '0') + `.jpg`
+    const thumbnails = Array.from({ length: frameCount }, (_, i) =>
+      `/thumbnails/thumb_${id}_` + (i + 1).toString().padStart(2, '0') + `.jpg`
     );
 
     return NextResponse.json({ thumbnails }, { status: 200 });
@@ -62,6 +93,8 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   try {
+    ensureDirectories();
+
     if (!fs.existsSync(THUMBNAILS_DIR)) {
       return NextResponse.json({ message: 'No thumbnails to delete' }, { status: 200 });
     }
