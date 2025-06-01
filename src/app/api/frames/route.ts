@@ -29,7 +29,7 @@ function getVideoDuration(filePath: string): Promise<number> {
       if (err) return reject(err);
       const duration = metadata.format.duration;
       if (!duration) {
-        reject(new Error("Invalid duration"));
+        reject(new Error("Invalid duration, please check file"));
       } else {
         resolve(duration);
       }
