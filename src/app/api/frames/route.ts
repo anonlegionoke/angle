@@ -66,7 +66,10 @@ export async function POST(request: Request) {
     });
 
     const duration = await getVideoDuration(inputPath);
-    const frameCount = Math.max(1, Math.floor(duration / 2));
+
+    const frameCount = Math.max(1, Math.floor(duration / 2)); 
+
+    const cmd = `ffmpeg -i "${inputPath}" -vf "fps=${frameCount / duration}" -vframes ${frameCount} "${THUMBNAILS_DIR}/thumb_${id}_%02d.jpg"`;
 
     await new Promise<void>((resolve, reject) => {
       ffmpeg(inputPath)

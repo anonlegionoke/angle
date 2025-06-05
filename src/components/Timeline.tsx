@@ -519,7 +519,7 @@ const Timeline: React.FC<TimelineProps> = ({
                 }}
               >
                 {/* Thumbnails grid */}
-                {thumbnails.length > 0 && (
+                {thumbnails?.length > 0 && (
                   <div className="absolute inset-0 flex items-center h-full justify-between gap-1">
                     {thumbnails.map((thumbnail, index) => (
                       <div
