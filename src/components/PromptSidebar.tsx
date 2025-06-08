@@ -6,7 +6,7 @@ interface PromptSidebarProps {
   onPromptSubmit: (prompt: string) => void;
   isGenerating: boolean;
   projectId?: string | null;
-  setLatestPromptId?: any;
+  setLatestPromptId: React.Dispatch<React.SetStateAction<string>>;
 }
 
 interface ChatMessage {
