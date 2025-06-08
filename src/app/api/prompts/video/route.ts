@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
     const { data: signedUrl, error: signedUrlError } = await supabase
       .storage
-      .from('manim-videos')
+      .from(process.env.NEXT_PUBLIC_SUPABASE_VIDEO_BUCKET_NAME!)
       .createSignedUrl(videoPath, 10800); // URL valid for 3 hours
 
     if (signedUrlError) {
