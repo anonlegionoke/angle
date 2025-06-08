@@ -6,6 +6,7 @@ interface PromptSidebarProps {
   onPromptSubmit: (prompt: string) => void;
   isGenerating: boolean;
   projectId?: string | null;
+  setLatestPromptId?: any;
 }
 
 interface ChatMessage {
@@ -31,7 +32,8 @@ export type Prompt = {
 const PromptSidebar: React.FC<PromptSidebarProps> = ({
   onPromptSubmit,
   isGenerating,
-  projectId
+  projectId,
+  setLatestPromptId
 }) => {
   const [prompt, setPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -188,7 +190,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         throw new Error(data.error || data.detail || 'Failed to generate animation');
       }
       
-      
+      setLatestPromptId(data?.promptId);
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
       if (data.code) {

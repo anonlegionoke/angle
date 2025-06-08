@@ -6,7 +6,7 @@ import VideoPreview from '@/components/VideoPreview';
 import Timeline from '@/components/Timeline';
 import PromptSidebar from '@/components/PromptSidebar';
 import LoadingOverlay from '@/components/LoadingOverlay';
-import { getLatestProjectVideo } from '@/lib/projectUtils';
+import { getLatestProject } from '@/lib/projectUtils';
 import { AudioClip } from '@/components/AudioManager';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
@@ -35,6 +35,7 @@ export default function Editor() {
   };
   
   const [videoSrc, setVideoSrc] = useState<string>('');
+  const [latestPromptId, setLatestPromptId] = useState<string>('');
   const [duration, setDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [volume, setVolume] = useState<number>(1);
@@ -895,16 +896,19 @@ export default function Editor() {
   };
     
   useEffect(() => {
-    const fetchLatestVideo = async () => {
+    const fetchLatestProject = async () => {
       if (!currentProjectId) return;
       
       setIsLoading(true);
       setLoadingMessage('Loading latest updates...');
       
       try {
-        const latestVideo = await getLatestProjectVideo(currentProjectId!);
-        if (latestVideo) {
+        const latest = await getLatestProject(currentProjectId!);
+        const latestVideo = latest?.videoPath;
+        const promptId = latest?.id;
+        if (latestVideo && promptId) {
           setVideoSrc(latestVideo);
+          setLatestPromptId(promptId);
         } else {
           console.log('No previous videos found for this project');
         }
@@ -915,7 +919,7 @@ export default function Editor() {
       }
     };
 
-    fetchLatestVideo();
+    fetchLatestProject();
   }, [currentProjectId]);
 
   const handleExitProject = async () => {
@@ -937,6 +941,7 @@ export default function Editor() {
   
       setDuration(0);
       setVideoSrc('');
+      setLatestPromptId('');
   
       await fetch('/api/frames', {
         method: 'DELETE',
@@ -1075,6 +1080,7 @@ export default function Editor() {
             onAddAudioClip={handleAddAudioClip}
             onRemoveAudioClip={handleRemoveAudioClip}
             videoSrc={videoSrc}
+            latestPromptId={latestPromptId}  
           />
           </div>
         </div>
@@ -1093,6 +1099,7 @@ export default function Editor() {
             onPromptSubmit={handlePromptSubmit}
             isGenerating={isGenerating}
             projectId={currentProjectId}
+            setLatestPromptId={setLatestPromptId}
           />
         </div>
       </main>

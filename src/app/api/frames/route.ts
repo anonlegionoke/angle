@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const res = await fetch(`${WORKER_URL}/thumbnails`, {
+    const res = await fetch(`${WORKER_URL}/frames`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (error) {
-    console.error('Error calling FastAPI /thumbnails:', error);
+    console.error('Error calling:', error);
     return NextResponse.json({ error: 'Failed to generate thumbnails' }, { status: 500 });
   }
 }
