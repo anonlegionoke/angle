@@ -2,6 +2,8 @@ export interface Project {
   id: string;
   createdAt: string;
   timestamp: string;
+  promptId?: string;
+  videoPath?: string;
 }
 
 export function storeCurrentProject(projectId: string): void {
@@ -26,7 +28,7 @@ export async function getAllProjects(): Promise<Project[]> {
   }
 }
 
-export async function getLatestProjectVideo(projectId: string): Promise<string | null> {
+export async function getLatestProject(projectId: string): Promise<Partial<Project> | null> {
   try {
     const response = await fetch(`/api/prompts?projectId=${projectId}`);
     if (!response.ok) {
@@ -42,18 +44,32 @@ export async function getLatestProjectVideo(projectId: string): Promise<string |
     }
     
     for (let i = data.prompts.length - 1; i >= 0; i--) {
-      const prompt = data.prompts[i];
-      const llmRes = JSON.parse(prompt.llmRes);
-      const videoPath = llmRes.videoPath;
-
-      if (videoPath) {
-        return videoPath;
+      const { id } = data.prompts[i];
+    
+      const videoPath = await getVideoUrl(id);
+      
+      if (videoPath && id) {
+        return { videoPath, id };
       }
     }
     
     return null;
   } catch (error) {
-    console.error('Error fetching latest project video:', error);
+    console.error('Error fetching latest project:', error);
     return null;
+  }
+} 
+
+export async function getVideoUrl(promptId: string): Promise<string> {
+  try {
+    const response = await fetch(`/api/prompts/video?promptId=${promptId}`);
+    if (!response.ok) {
+      throw new Error('Failed to get video URL');
+    }
+    const data = await response.json();
+    return data.url;
+  } catch (error) {
+    console.error('Error getting video URL:', error);
+    throw error;
   }
 } 

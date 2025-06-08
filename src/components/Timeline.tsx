@@ -25,6 +25,7 @@ interface TimelineProps {
   onRemoveAudioClip?: (clipId: string) => void;
   audioClips?: AudioClip[];
   videoSrc?: string;
+  latestPromptId?: string;
 }
 
 interface TimeMarker {
@@ -51,7 +52,8 @@ const Timeline: React.FC<TimelineProps> = ({
   onAddAudioClip,
   onRemoveAudioClip,
   audioClips = [],
-  videoSrc
+  videoSrc,
+  latestPromptId
 }) => {
   const [draggingState, setDraggingState] = useState({
     isDragging: false,
@@ -401,12 +403,12 @@ const Timeline: React.FC<TimelineProps> = ({
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ videoUrl: videoSrc }),
+          body: JSON.stringify({ videoUrl: videoSrc, promptId: latestPromptId }),
         });
   
         const data = await res.json();
-        if (data.thumbnails) {
-          setThumbnails(data.thumbnails);
+        if (data) {
+          setThumbnails(data);
         }
       } catch (err) {
         console.error('Failed to generate thumbnails:', err);
@@ -414,7 +416,7 @@ const Timeline: React.FC<TimelineProps> = ({
     };
   
     fetchThumbnails();
-  }, [videoSrc]);
+  }, [videoSrc, latestPromptId]);
 
   return (
     <div className="flex-1 flex flex-col p-4 min-h-[300px] bg-editor-bg select-none">

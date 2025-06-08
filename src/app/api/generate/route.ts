@@ -208,7 +208,8 @@ export async function POST(req: NextRequest) {
       videoPath: relativeVideoPath,
       hasContext,
       promptHistory,
-      projectId: currentProjectId
+      projectId: currentProjectId,
+      promptId: id
     });
   } catch (err: unknown) {
     console.error(err);
