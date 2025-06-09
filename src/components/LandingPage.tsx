@@ -74,7 +74,6 @@ export default function LandingPage() {
           }
           
           const createData = await createResponse.json();
-          console.log('New project created:', createData);
         }
         storeCurrentProject(projectId);
       } catch (error) {

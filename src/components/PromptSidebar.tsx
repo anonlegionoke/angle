@@ -226,7 +226,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 
       const videoPath = data.videoPath;
       
-      console.log('Video path:', videoPath);
       onPromptSubmit(videoPath);
       
       const successMessage: ChatMessage = {

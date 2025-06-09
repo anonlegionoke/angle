@@ -11,7 +11,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Missing promptId' }, { status: 400 });
     }
       
-      const videoPath = `video_${promptId}.mp4`;
+      const videoPath = `${promptId}/video_${promptId}.mp4`;
       
       console.log('Video path:', videoPath);
 

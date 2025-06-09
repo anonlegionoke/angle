@@ -677,10 +677,10 @@ const Timeline: React.FC<TimelineProps> = ({
                           title="Remove this clip"
                           onClick={(e) => {
                             e.stopPropagation();
-                            console.log('Delete button clicked for clip:', clip.name);
+                            // console.log('Delete button clicked for clip:', clip.name);
                             
                             if (confirm(`Remove audio clip "${clip.name}"?`)) {
-                              console.log(`User confirmed deletion of audio clip: ${clip.name} (ID: ${clip.id})`);
+                              // console.log(`User confirmed deletion of audio clip: ${clip.name} (ID: ${clip.id})`);
                               
                               if (audioElementsRef.current[clip.id]) {
                                 audioElementsRef.current[clip.id].pause();
@@ -690,7 +690,7 @@ const Timeline: React.FC<TimelineProps> = ({
                               setSelectedAudioClip(null);
                               
                               if (onRemoveAudioClip) {
-                                console.log('Calling onRemoveAudioClip with clip ID:', clip.id);
+                                // console.log('Calling onRemoveAudioClip with clip ID:', clip.id);
                                 onRemoveAudioClip(clip.id);
                               } else {
                                 console.error('onRemoveAudioClip function is not available');
