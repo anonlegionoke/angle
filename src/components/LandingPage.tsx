@@ -73,7 +73,7 @@ export default function LandingPage() {
             throw new Error('Failed to create project directory');
           }
           
-          const createData = await createResponse.json();
+          await createResponse.json();
         }
         storeCurrentProject(projectId);
       } catch (error) {
