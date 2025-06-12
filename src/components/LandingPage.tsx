@@ -19,6 +19,7 @@ export default function LandingPage() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [loadingProjectId, setLoadingProjectId] = useState<string | null>(null);
   
   const router = useRouter();
 
@@ -156,6 +157,11 @@ export default function LandingPage() {
     }
   };
 
+  const handleProjectClick = (projectId: string) => {
+    setLoadingProjectId(projectId);
+    router.push(`/editor/${projectId}`);
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-editor-bg text-white overflow-y-auto max-h-screen pt-4 relative">
       <div className="absolute top-4 right-4 flex flex-col items-end">
@@ -274,7 +280,7 @@ export default function LandingPage() {
                 <div 
                   key={project.id} 
                   className="bg-gray-800 rounded-lg p-5 cursor-pointer hover:bg-gray-700 transition-colors border border-gray-700 flex flex-col"
-                  onClick={() => router.push(`/editor/${project.id}`)}
+                  onClick={() => handleProjectClick(project.id)}
                 >
                   <div className="flex items-center mb-3">
                     <div className="bg-blue-500 rounded-full w-10 h-10 flex items-center justify-center text-white font-bold mr-3">
@@ -290,8 +296,19 @@ export default function LandingPage() {
                     <span className="text-sm text-gray-400">
                       {getRelativeTime(project.createdAt)}
                     </span>
-                    <span className="bg-gray-700 text-xs rounded-full px-2 py-1">
-                      Open
+                    <span className={`text-xs rounded-full px-2 py-1 ${
+                      loadingProjectId === project.id 
+                        ? 'bg-blue-600 text-white flex items-center'
+                        : 'bg-gray-700'
+                    }`}>
+                      {loadingProjectId === project.id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-white mr-1"></div>
+                          Loading...
+                        </>
+                      ) : (
+                        'Open'
+                      )}
                     </span>
                   </div>
                 </div>
