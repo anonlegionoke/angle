@@ -1,7 +1,7 @@
 'use client'
 
 import { login, signup } from './actions'
-import { useFormState } from 'react-dom'
+import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { useEffect, useState } from 'react'
 
@@ -50,7 +50,7 @@ function FormButtons() {
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
-  const [formState, formAction] = useFormState(
+  const [formState, formAction] = useActionState(
     async (prevState: { error: string } | null, formData: FormData) => {
       const action = formData.get('action')
       const result = action === 'signup' 
