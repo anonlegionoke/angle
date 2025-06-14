@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 const DEFAULT_SIDEBAR_WIDTH = 500;
 const SIDEBAR_WIDTH_KEY = 'angle_sidebar_width';
-const DEFAULT_TIMELINE_HEIGHT_RATIO = 0.3;
+const DEFAULT_TIMELINE_HEIGHT_RATIO = 0.5;
 const TIMELINE_HEIGHT_RATIO_KEY = 'angle_timeline_height_ratio';
 
 export default function Editor() {
