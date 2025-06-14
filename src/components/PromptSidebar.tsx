@@ -37,6 +37,15 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 }) => {
   const [prompt, setPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+
+  useEffect(() => {
+    if (chatMessages && chatMessages[chatMessages.length - 1]?.status === 'sending' || prompt || chatMessages?.length > 3) {
+      setShowSuggestions(false);
+    } else {
+      setShowSuggestions(true);
+    }
+  }, [prompt, chatMessages])
   
   useEffect(() => {
     const welcomeMessage: ChatMessage = {
@@ -295,14 +304,14 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-editor-panel">
+    <div className="w-full h-full flex flex-col bg-editor-pane">
       {/* Header with actions */}
       {/* <div className="p-3 border-b border-editor-border flex justify-between items-center">
         <h3 className="text-sm font-medium text-white">Manim Generator</h3>
       </div> */}
       
       {/* Chat messages */}
-      <div className="flex-1 p-4 overflow-y-auto w-full">
+      <div className="flex-1 p-4 overflow-y-auto w-full text-sm">
         <div className="flex flex-col gap-4 w-full">
           {chatMessages.map(message => (
             <div 
@@ -310,13 +319,13 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
               className={`p-3 rounded-md max-w-[90%] break-words ${
                 message.isUser 
                   ? 'bg-editor-highlight self-end' 
-                  : 'bg-editor-panel border border-editor-border self-start'
+                  : 'bg-editor-panel border border-editor-border self-start rounded-xl'
               } ${
                 message.status === 'sending' ? 'opacity-70' : ''
               }`}
             >
               <div className="text-sm text-white/80 mb-1">
-                {message.isUser ? 'You' : 'AI'}
+                {message.isUser ? 'You' : 'Angle'}
                 {message.timestamp && (
                   <span className="text-xs ml-2 text-white/50">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -350,29 +359,31 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       </div>
       
       {/* Suggestion prompts */}
-      <div className="p-4 border-t border-editor-border">
+      <div className={showSuggestions ? "p-3" : "hidden"}>
+      <div className="p-4 border-1 rounded-xl">
         <p className="text-xs text-gray-400 mb-2">Suggestions:</p>
         <div className="flex flex-wrap gap-2">
           {suggestionPrompts.map(suggestion => (
             <button
               key={suggestion.id}
               onClick={() => handleSuggestionClick(suggestion)}
-              className="text-xs bg-editor-border hover:bg-editor-highlight transition-colors px-3 py-1 rounded-full text-gray-300 cursor-pointer"
+              className="text-xs bg-editor-border hover:bg-editor-highlight transition-colors px-3 py-1 rounded-full text-gray-300 cursor-pointer border-1 hover:bg-gray-600"
             >
               {suggestion.text}
             </button>
           ))}
         </div>
       </div>
-      
+      </div>
+
       {/* Input field */}
-      <div className="p-4 border-t border-editor-border">
+      <div className="p-3">
         <div className="relative">
           <textarea
             value={prompt}
             onChange={handlePromptChange}
             onKeyDown={handleKeyDown}
-            className="w-full bg-editor-bg border border-editor-border rounded p-3 pr-12 text-white resize-none focus:outline-none focus:border-editor-highlight"
+            className="w-full bg-editor-bg border border-editor-border rounded-xl p-3 pr-12 text-white resize-none focus:outline-none focus:border-editor-highlight"
             placeholder="Describe the math animation you want to create..."
             rows={3}
             disabled={isGenerating}
