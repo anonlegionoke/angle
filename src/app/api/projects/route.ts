@@ -100,6 +100,26 @@ export async function DELETE(request: Request) {
     
     if (userProjects && userProjects.length > 0) {
       const projectIds = userProjects.map(project => project.project_id);
+
+      const { data: prompts, error: promptsFetchError } = await supabase
+        .from('prompts')
+        .select('prompt_id')
+        .in('project_id', projectIds);
+
+      if (promptsFetchError) {
+        console.error('Error fetching prompts:', promptsFetchError);
+      } else if (prompts && prompts.length > 0) {
+        const videoPaths = prompts.map(prompt => `${prompt.prompt_id}/video_${prompt.prompt_id}.mp4`);
+
+        const { error: videosDeleteError } = await supabase
+          .storage
+          .from(process.env.NEXT_PUBLIC_SUPABASE_VIDEO_BUCKET_NAME!)
+          .remove(videoPaths);
+        
+        if (videosDeleteError) {
+          console.error('Error deleting project videos:', videosDeleteError);
+        }
+      }
       
       const { error: promptsDeleteError } = await supabase
         .from('prompts')

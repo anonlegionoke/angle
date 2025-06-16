@@ -1,8 +1,14 @@
+import { createClient } from "@/utils/supabase/client";
+
 export interface Project {
   id: string;
   createdAt: string;
   timestamp: string;
+  promptId?: string;
+  videoPath?: string;
 }
+
+/* Project Management */
 
 export function storeCurrentProject(projectId: string): void {
   if (typeof window !== 'undefined') {
@@ -26,7 +32,7 @@ export async function getAllProjects(): Promise<Project[]> {
   }
 }
 
-export async function getLatestProjectVideo(projectId: string): Promise<string | null> {
+export async function getLatestProject(projectId: string): Promise<Partial<Project> | null> {
   try {
     const response = await fetch(`/api/prompts?projectId=${projectId}`);
     if (!response.ok) {
@@ -42,18 +48,77 @@ export async function getLatestProjectVideo(projectId: string): Promise<string |
     }
     
     for (let i = data.prompts.length - 1; i >= 0; i--) {
-      const prompt = data.prompts[i];
-      const llmRes = JSON.parse(prompt.llmRes);
-      const videoPath = llmRes.videoPath;
-
-      if (videoPath) {
-        return videoPath;
+      const { id } = data.prompts[i];
+    
+      const videoPath = await getVideoUrl(id);
+      
+      if (videoPath && id) {
+        return { videoPath, id };
       }
     }
     
     return null;
   } catch (error) {
-    console.error('Error fetching latest project video:', error);
+    console.error('Error fetching latest project:', error);
     return null;
   }
 } 
+
+/* Video Management */
+
+export async function getVideoUrl(promptId: string): Promise<string> {
+  try {
+    const response = await fetch(`/api/prompts/video?promptId=${promptId}`);
+    if (!response.ok) {
+      throw new Error('Failed to get video URL');
+    }
+    const data = await response.json();
+    return data.url;
+  } catch (error) {
+    console.error('Error getting video URL:', error);
+    throw error;
+  }
+} 
+
+/* Code Management */
+
+export async function getCodeUrl({
+  code,
+  promptId,
+  projectId,
+  supabase,
+}: {
+  code: string;
+  promptId: string;
+  projectId: string;
+  supabase: ReturnType<typeof createClient>;
+}): Promise<string> {
+  try {
+    
+    const { error: insertError } = await supabase
+      .storage
+      .from(process.env.NEXT_PUBLIC_SUPABASE_CODE_BUCKET_NAME!)
+      .upload(`${projectId}/${promptId}/code_${promptId}.py`, Buffer.from(code), {
+        contentType: 'text/x-python',
+        upsert: true,
+      });
+
+    if (insertError) {
+      throw new Error(`Failed to insert code: ${insertError.message}`);
+    }
+
+    const { data: signedUrl, error: signedUrlError } = await supabase
+      .storage
+      .from(process.env.NEXT_PUBLIC_SUPABASE_CODE_BUCKET_NAME!)
+      .createSignedUrl(`${projectId}/${promptId}/code_${promptId}.py`, 10800);
+
+    if (signedUrlError) {
+      throw new Error(`Code not found: ${signedUrlError.message}`);
+    }
+
+    return signedUrl.signedUrl;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+}

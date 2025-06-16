@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@/utils/supabase/server';
 import { generateProjectId } from '@/components/LandingPage';
+import { getCodeUrl } from '@/lib/projectUtils';
 
 async function getProjectChatLog(projectId: string) {
   try {
@@ -142,44 +143,43 @@ export async function POST(req: NextRequest) {
     if (!prompt) return NextResponse.json({ error: 'Prompt required' }, { status: 400 });
 
     /* ── generate code ── */
-    const sceneName = 'GeneratedScene';
     const code = await getGeminiCode(prompt, currentProjectId);
+  
+    const codeUrl = await getCodeUrl({code, promptId:id, projectId:currentProjectId, supabase});
 
     /* ── render using worker API ── */
     const workerUrl = process.env.WORKER_URL;
     if (!workerUrl) throw new Error('WORKER_URL not set in environment variables');
 
-    const renderResponse = await fetch(`${workerUrl}/render`, {
+    let videoUrl: string;
+
+    const triggerGithubActions = await fetch(`${workerUrl}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.PAT_TOKEN}`,
       },
       body: JSON.stringify({
-        code,
-        scene_name: sceneName,
-        job_id: id,
-        project_id: currentProjectId || 'default-project'
+        ref: "actions",
+        inputs: {
+          code_url: codeUrl,
+          prompt_id: id,
+          project_id: currentProjectId 
+        }
       })
-    });
-
-    if (!renderResponse.ok) {
-      const errorText = await renderResponse.text();
-      throw new Error(`Worker render failed: ${renderResponse.status} ${errorText}`);
+    })
+    
+    if (triggerGithubActions.status === 204) {
+      console.log('Triggered GitHub Actions successfully');
+      videoUrl = 'pending';
+    } else {
+      const errorText = await triggerGithubActions.text();
+      throw new Error(`Worker render failed: ${triggerGithubActions.status} ${errorText}`);
     }
 
-    const renderResult = await renderResponse.json();
-    const videoUrl = renderResult.video_url;
-
-    if (!videoUrl) {
-      throw new Error('Worker did not return a video URL');
+    if (videoUrl === 'pending') {
+      console.log("Video is being renderd, please wait...");
     }
-
-    const relativeVideoPath = videoUrl;
-
-    const llmResponse = JSON.stringify({
-      code,
-      videoPath: relativeVideoPath
-    });
 
     const { error: promptInsertError } = await supabase
       .from('prompts')
@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
         prompt_id: id,
         project_id: currentProjectId,
         usr_msg: prompt,
-        llm_res: llmResponse,
+        llm_res: JSON.stringify({ code }),
       });
 
     if (promptInsertError) {
@@ -205,10 +205,11 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json({
       code,
-      videoPath: relativeVideoPath,
+      videoPath: videoUrl,
       hasContext,
       promptHistory,
-      projectId: currentProjectId
+      projectId: currentProjectId,
+      promptId: id
     });
   } catch (err: unknown) {
     console.error(err);

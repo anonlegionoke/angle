@@ -6,6 +6,7 @@ interface PromptSidebarProps {
   onPromptSubmit: (prompt: string) => void;
   isGenerating: boolean;
   projectId?: string | null;
+  setLatestPromptId: React.Dispatch<React.SetStateAction<string>>;
 }
 
 interface ChatMessage {
@@ -31,10 +32,20 @@ export type Prompt = {
 const PromptSidebar: React.FC<PromptSidebarProps> = ({
   onPromptSubmit,
   isGenerating,
-  projectId
+  projectId,
+  setLatestPromptId
 }) => {
   const [prompt, setPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+
+  useEffect(() => {
+    if (chatMessages && chatMessages[chatMessages.length - 1]?.status === 'sending' || prompt || chatMessages?.length > 3) {
+      setShowSuggestions(false);
+    } else {
+      setShowSuggestions(true);
+    }
+  }, [prompt, chatMessages])
   
   useEffect(() => {
     const welcomeMessage: ChatMessage = {
@@ -178,7 +189,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         },
         body: JSON.stringify({ 
           prompt: promptText,
-          projectId: projectId || undefined 
+          projectId: projectId
         }),
       });
       
@@ -188,7 +199,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         throw new Error(data.error || data.detail || 'Failed to generate animation');
       }
       
-      
+      setLatestPromptId(data?.promptId);
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
       
       if (data.code) {
@@ -201,12 +212,12 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         };
         setChatMessages(prev => [...prev, codeMessage]);
         
-        if (data.videoPath) {
+        if (data.videoPath === 'pending') {
           onPromptSubmit(data.videoPath);
           
           const videoMessage: ChatMessage = {
             id: (Date.now() + 2).toString(),
-            text: "Manim animation generated successfully! You can view it in the preview section.",
+            text: "Animation is being generated! You can view it in the preview section once it's ready.",
             isUser: false,
             timestamp: new Date(),
             status: 'sent'
@@ -224,7 +235,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 
       const videoPath = data.videoPath;
       
-      console.log('Video path:', videoPath);
       onPromptSubmit(videoPath);
       
       const successMessage: ChatMessage = {
@@ -294,14 +304,14 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-editor-panel">
+    <div className="w-full h-full flex flex-col bg-editor-pane">
       {/* Header with actions */}
       {/* <div className="p-3 border-b border-editor-border flex justify-between items-center">
         <h3 className="text-sm font-medium text-white">Manim Generator</h3>
       </div> */}
       
       {/* Chat messages */}
-      <div className="flex-1 p-4 overflow-y-auto w-full">
+      <div className="flex-1 p-4 overflow-y-auto w-full text-sm">
         <div className="flex flex-col gap-4 w-full">
           {chatMessages.map(message => (
             <div 
@@ -309,13 +319,13 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
               className={`p-3 rounded-md max-w-[90%] break-words ${
                 message.isUser 
                   ? 'bg-editor-highlight self-end' 
-                  : 'bg-editor-panel border border-editor-border self-start'
+                  : 'bg-editor-panel border border-editor-border self-start rounded-xl'
               } ${
                 message.status === 'sending' ? 'opacity-70' : ''
               }`}
             >
               <div className="text-sm text-white/80 mb-1">
-                {message.isUser ? 'You' : 'AI'}
+                {message.isUser ? 'You' : 'Angle'}
                 {message.timestamp && (
                   <span className="text-xs ml-2 text-white/50">
                     {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -349,29 +359,31 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       </div>
       
       {/* Suggestion prompts */}
-      <div className="p-4 border-t border-editor-border">
+      <div className={showSuggestions ? "p-3" : "hidden"}>
+      <div className="p-4 border-1 rounded-xl">
         <p className="text-xs text-gray-400 mb-2">Suggestions:</p>
         <div className="flex flex-wrap gap-2">
           {suggestionPrompts.map(suggestion => (
             <button
               key={suggestion.id}
               onClick={() => handleSuggestionClick(suggestion)}
-              className="text-xs bg-editor-border hover:bg-editor-highlight transition-colors px-3 py-1 rounded-full text-gray-300 cursor-pointer"
+              className="text-xs bg-editor-border hover:bg-editor-highlight transition-colors px-3 py-1 rounded-full text-gray-300 cursor-pointer border-1 hover:bg-gray-600"
             >
               {suggestion.text}
             </button>
           ))}
         </div>
       </div>
-      
+      </div>
+
       {/* Input field */}
-      <div className="p-4 border-t border-editor-border">
+      <div className="p-3">
         <div className="relative">
           <textarea
             value={prompt}
             onChange={handlePromptChange}
             onKeyDown={handleKeyDown}
-            className="w-full bg-editor-bg border border-editor-border rounded p-3 pr-12 text-white resize-none focus:outline-none focus:border-editor-highlight"
+            className="w-full bg-editor-bg border border-editor-border rounded-xl p-3 pr-12 text-white resize-none focus:outline-none focus:border-editor-highlight"
             placeholder="Describe the math animation you want to create..."
             rows={3}
             disabled={isGenerating}
@@ -381,8 +393,8 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
             disabled={!prompt.trim() || isGenerating}
             className={`absolute bottom-3 right-3 rounded-full w-8 h-8 flex items-center justify-center transition-colors ${
               !prompt.trim() || isGenerating
-                ? 'bg-editor-border text-gray-500 cursor-not-allowed'
-                : 'bg-editor-highlight text-white hover:bg-blue-700 cursor-pointer'
+                ? 'bg-editor-border text-gray-500 cursor-not-allowed border-1 border-gray-500'
+                : 'bg-editor-highlight text-white border-2 border-white hover:bg-blue-700 cursor-pointer'
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
