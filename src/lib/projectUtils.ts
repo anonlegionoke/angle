@@ -1,3 +1,5 @@
+import { createClient } from "@/utils/supabase/client";
+
 export interface Project {
   id: string;
   createdAt: string;
@@ -5,6 +7,8 @@ export interface Project {
   promptId?: string;
   videoPath?: string;
 }
+
+/* Project Management */
 
 export function storeCurrentProject(projectId: string): void {
   if (typeof window !== 'undefined') {
@@ -60,6 +64,8 @@ export async function getLatestProject(projectId: string): Promise<Partial<Proje
   }
 } 
 
+/* Video Management */
+
 export async function getVideoUrl(promptId: string): Promise<string> {
   try {
     const response = await fetch(`/api/prompts/video?promptId=${promptId}`);
@@ -73,3 +79,46 @@ export async function getVideoUrl(promptId: string): Promise<string> {
     throw error;
   }
 } 
+
+/* Code Management */
+
+export async function getCodeUrl({
+  code,
+  promptId,
+  projectId,
+  supabase,
+}: {
+  code: string;
+  promptId: string;
+  projectId: string;
+  supabase: ReturnType<typeof createClient>;
+}): Promise<string> {
+  try {
+    
+    const { error: insertError } = await supabase
+      .storage
+      .from(process.env.NEXT_PUBLIC_SUPABASE_CODE_BUCKET_NAME!)
+      .upload(`${projectId}/${promptId}/code_${promptId}.py`, Buffer.from(code), {
+        contentType: 'text/x-python',
+        upsert: true,
+      });
+
+    if (insertError) {
+      throw new Error(`Failed to insert code: ${insertError.message}`);
+    }
+
+    const { data: signedUrl, error: signedUrlError } = await supabase
+      .storage
+      .from(process.env.NEXT_PUBLIC_SUPABASE_CODE_BUCKET_NAME!)
+      .createSignedUrl(`${projectId}/${promptId}/code_${promptId}.py`, 10800);
+
+    if (signedUrlError) {
+      throw new Error(`Code not found: ${signedUrlError.message}`);
+    }
+
+    return signedUrl.signedUrl;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+}

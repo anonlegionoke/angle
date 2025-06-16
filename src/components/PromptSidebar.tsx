@@ -189,7 +189,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         },
         body: JSON.stringify({ 
           prompt: promptText,
-          projectId: projectId || undefined 
+          projectId: projectId
         }),
       });
       
@@ -212,12 +212,12 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         };
         setChatMessages(prev => [...prev, codeMessage]);
         
-        if (data.videoPath) {
+        if (data.videoPath === 'pending') {
           onPromptSubmit(data.videoPath);
           
           const videoMessage: ChatMessage = {
             id: (Date.now() + 2).toString(),
-            text: "Manim animation generated successfully! You can view it in the preview section.",
+            text: "Animation is being generated! You can view it in the preview section once it's ready.",
             isUser: false,
             timestamp: new Date(),
             status: 'sent'

@@ -26,6 +26,8 @@ interface TimelineProps {
   audioClips?: AudioClip[];
   videoSrc?: string;
   latestPromptId?: string;
+  thumbnails: string[];
+  setThumbnails: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 interface TimeMarker {
@@ -53,7 +55,9 @@ const Timeline: React.FC<TimelineProps> = ({
   onRemoveAudioClip,
   audioClips = [],
   videoSrc,
-  latestPromptId
+  latestPromptId,
+  thumbnails,
+  setThumbnails
 }) => {
   const [draggingState, setDraggingState] = useState({
     isDragging: false,
@@ -67,7 +71,6 @@ const Timeline: React.FC<TimelineProps> = ({
   const [showAudioManager, setShowAudioManager] = useState(false);
   const [selectedAudioClip, setSelectedAudioClip] = useState<string | null>(null);
   const [draggingAudioClip, setDraggingAudioClip] = useState<{ id: string; initialX: number; initialStartTime: number } | null>(null);
-  const [thumbnails, setThumbnails] = useState<string[]>([]);
   
   const timelineRef = useRef<HTMLDivElement>(null);
   const videoTrackRef = useRef<HTMLDivElement>(null);
@@ -398,17 +401,11 @@ const Timeline: React.FC<TimelineProps> = ({
   
     const fetchThumbnails = async () => {
       try {
-        const res = await fetch('/api/frames', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ videoUrl: videoSrc, promptId: latestPromptId }),
-        });
+        const res = await fetch(`/api/frames?promptId=${latestPromptId}`);
   
-        const data = await res.json();
-        if (data) {
-          setThumbnails(data);
+        const { frames } = await res.json();
+        if (frames) {
+          setThumbnails(frames);
         }
       } catch (err) {
         console.error('Failed to generate thumbnails:', err);
