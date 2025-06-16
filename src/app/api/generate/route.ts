@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
         'Authorization': `Bearer ${process.env.PAT_TOKEN}`,
       },
       body: JSON.stringify({
-        ref: "actions",
+        ref: "main",
         inputs: {
           code_url: codeUrl,
           prompt_id: id,
