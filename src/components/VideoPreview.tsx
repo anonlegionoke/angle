@@ -14,6 +14,7 @@ interface VideoPreviewProps {
   videoTrimStart: number;
   videoTrimEnd: number;
   isLoopingEnabled: boolean;
+  isGenerating: boolean;
 }
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({
@@ -27,7 +28,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   onMuteToggle,
   videoTrimStart,
   videoTrimEnd,
-  isLoopingEnabled
+  isLoopingEnabled,
+  isGenerating
 }) => {
   const [isClient, setIsClient] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -106,6 +108,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   return (
     <div className="flex flex-col bg-black border-b border-editor-border justify-center h-full">
       <div className="flex justify-center items-center relative overflow-hidden h-full">
+      {isGenerating && (
+              <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+                <div className="text-white text-center max-w-md">
+                  <p>🫕♨️ Prepairing your video...</p>
+                </div>
+              </div>
+            )}
         {isClient && videoSrc ? (
           <>
             <video

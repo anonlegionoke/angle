@@ -10,10 +10,12 @@ import { getLatestProject } from '@/lib/projectUtils';
 import { AudioClip } from '@/components/AudioManager';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 const DEFAULT_SIDEBAR_WIDTH = 500;
 const SIDEBAR_WIDTH_KEY = 'angle_sidebar_width';
 const DEFAULT_TIMELINE_HEIGHT_RATIO = 0.5;
 const TIMELINE_HEIGHT_RATIO_KEY = 'angle_timeline_height_ratio';
+const supabase = createClient();
 
 export default function Editor() {
   const router = useRouter();
@@ -52,7 +54,7 @@ export default function Editor() {
   const [isDraggingTimeline, setIsDraggingTimeline] = useState<boolean>(false);
   const [audioClips, setAudioClips] = useState<AudioClip[]>([]);
   const [audioBlobUrls, setAudioBlobUrls] = useState<{[key: string]: string}>({});
-  
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadingMessage, setLoadingMessage] = useState<string>('Loading resources...'); 
 
@@ -846,54 +848,58 @@ export default function Editor() {
   };
 
   const handlePromptSubmit = async (videoPath: string) => {
-    console.log('Received video path:', videoPath);
-    setIsGenerating(true);
-    
-    try {
-      if (!videoPath) {
-        setIsGenerating(false);
-        return;
-      }
-      
-      const absoluteVideoPath = videoPath.startsWith('http') 
-        ? videoPath 
-        : videoPath.startsWith('/') 
-          ? videoPath 
-          : `/${videoPath}`;
-      
-      const isNonStandardExt = absoluteVideoPath.includes('.nonvid');
-      console.log('Is non-standard extension:', isNonStandardExt);
-      
-      console.log('Setting video source to:', absoluteVideoPath);
-      setVideoSrc(absoluteVideoPath);
-      
-      setTimeout(() => {
-        if (videoRef.current) {
-          console.log('Attempting to play video after delay');
-          videoRef.current.currentTime = 0;
-          
-          const onCanPlay = () => {
-            console.log('Video can play now');
-            videoRef.current?.play()
-              .catch(err => {
-                console.error('Error playing video after canplay event:', err);
-              });
-            videoRef.current?.removeEventListener('canplay', onCanPlay);
-          };
-          
-          videoRef.current.addEventListener('canplay', onCanPlay);
-          
-          videoRef.current.play().catch(err => {
-            console.log('Initial play attempt failed, waiting for canplay event:', err);
-          });
-        }
-      }, 300);
-    } catch (error) {
-      console.error('Error updating video:', error);
-    } finally {
-      setIsGenerating(false);
+    if (videoPath === 'pending') { 
+      setIsGenerating(true);
+      return;
     }
   };
+
+  useEffect(() => {
+    if (!latestPromptId) return;
+  
+    const channel = supabase
+      .channel("prompt_status_updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "prompts",
+          filter: `prompt_id=eq.${latestPromptId}`,
+        },
+        (payload) => {
+          const updated = payload.new;
+  
+          if (
+            updated.status === "completed" &&
+            updated.video_url
+          ) {
+            setVideoSrc(updated.video_url);
+            setIsGenerating(false);
+            setTimeout(() => {
+              const fetchThumbnails = async () => {
+                try {
+                  const res = await fetch(`/api/frames?promptId=${latestPromptId}`);
+            
+                  const { frames } = await res.json();
+                  if (frames) {
+                    setThumbnails(frames);
+                  }
+                } catch (err) {
+                  console.error('Failed to generate thumbnails:', err);
+                }
+              };
+              fetchThumbnails();
+            }, 30000);
+          }
+        }
+      )
+      .subscribe();
+  
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [latestPromptId, supabase]);  
     
   useEffect(() => {
     const fetchLatestProject = async () => {
@@ -1043,6 +1049,7 @@ export default function Editor() {
               videoTrimStart={videoTrimStart}
               videoTrimEnd={videoTrimEnd}
               isLoopingEnabled={isLoopingEnabled}
+              isGenerating={isGenerating}
             />
           </div>
         
@@ -1081,6 +1088,8 @@ export default function Editor() {
             onRemoveAudioClip={handleRemoveAudioClip}
             videoSrc={videoSrc}
             latestPromptId={latestPromptId}  
+            thumbnails={thumbnails}
+            setThumbnails={setThumbnails}  
           />
           </div>
         </div>
