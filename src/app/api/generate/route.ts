@@ -63,6 +63,7 @@ const sharedPromptRequirements = `Important rules:
 13. Make sure the code is following strict type rules of manim
 14. Return complete ERROR FREE code
 15. PYTHON CODE SHOULD CLEAN, AND HIGH QUALITY like 3blue1brown
+16. USE LATEST MANIM CODE PRACTICES
 
 Return ONLY the complete, updated Python code that fulfills these requirements.`;
 
@@ -82,6 +83,8 @@ Current Python Manim code:
 \`\`\`python
 ${currentCode}
 \`\`\`
+
+READ current Python Manim code, to understand where we stand, and improve this current code, and DON'T start code from scratch
 
 NEW REQUEST: "${userPrompt}"
 
