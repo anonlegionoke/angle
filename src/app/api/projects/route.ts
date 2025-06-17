@@ -100,17 +100,16 @@ export async function DELETE(request: Request) {
     
     if (userProjects && userProjects.length > 0) {
       const projectIds = userProjects.map(project => project.project_id);
-
       const { data: prompts, error: promptsFetchError } = await supabase
         .from('prompts')
-        .select('prompt_id')
+        .select('prompt_id, project_id')
         .in('project_id', projectIds);
-
+      
       if (promptsFetchError) {
         console.error('Error fetching prompts:', promptsFetchError);
       } else if (prompts && prompts.length > 0) {
-        const videoPaths = prompts.map(prompt => `${prompt.prompt_id}/video_${prompt.prompt_id}.mp4`);
-
+        // Delete videos
+        const videoPaths = prompts.map(prompt => `${prompt.project_id}/${prompt.prompt_id}/video_${prompt.prompt_id}.mp4`);
         const { error: videosDeleteError } = await supabase
           .storage
           .from(process.env.NEXT_PUBLIC_SUPABASE_VIDEO_BUCKET_NAME!)
@@ -118,6 +117,28 @@ export async function DELETE(request: Request) {
         
         if (videosDeleteError) {
           console.error('Error deleting project videos:', videosDeleteError);
+        }
+
+        // Delete frames
+        const framePaths = prompts.map(prompt => `${prompt.project_id}/${prompt.prompt_id}/`);
+        const { error: framesDeleteError } = await supabase
+          .storage
+          .from(process.env.NEXT_PUBLIC_SUPABASE_FRAMES_BUCKET_NAME!)
+          .remove(framePaths);
+        
+        if (framesDeleteError) {
+          console.error('Error deleting project frames:', framesDeleteError);
+        }
+
+        // Delete code files
+        const codePaths = prompts.map(prompt => `${prompt.project_id}/${prompt.prompt_id}/`);
+        const { error: codeDeleteError } = await supabase
+          .storage
+          .from(process.env.NEXT_PUBLIC_SUPABASE_CODE_BUCKET_NAME!)
+          .remove(codePaths);
+        
+        if (codeDeleteError) {
+          console.error('Error deleting project code files:', codeDeleteError);
         }
       }
       
@@ -155,4 +176,4 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

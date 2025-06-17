@@ -102,7 +102,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     setVideoError('Failed to load the video. Please check that the file exists and is in a supported format.');
   };
 
-  const [remaining, setRemaining] = useState(180);
+  const [remaining, setRemaining] = useState(240);
 
   useEffect(() => {
     const interval = setInterval(() => {
