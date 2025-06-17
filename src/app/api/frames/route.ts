@@ -6,13 +6,15 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const promptId = searchParams.get('promptId');
+  const projectId = searchParams.get('projectId');
 
-  if (!promptId) {
-    return NextResponse.json({ error: 'Missing promptId' }, { status: 400 });
+  if (!promptId || !projectId) {
+    return NextResponse.json({ error: 'Missing promptId or projectId' }, { status: 400 });
   }
 
   try {
-    const { data: files, error: filesError } = await supabase.storage.from('manim-frames').list(promptId);
+    const supabasePath = `${projectId}/${promptId}`;
+    const { data: files, error: filesError } = await supabase.storage.from('manim-frames').list(supabasePath);
     
     if (filesError) {
       console.error('Error fetching files:', filesError);
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     const signedUrls: string[] = [];
 
     for (const file of files || []) {
-      const { data: signedUrl, error: urlError } = await supabase.storage.from('manim-frames').createSignedUrls([promptId + '/' + file.name], 10800); // 3 hours
+      const { data: signedUrl, error: urlError } = await supabase.storage.from('manim-frames').createSignedUrls([supabasePath + '/' + file.name], 10800); // 3 hours
       
       if (urlError) {
         console.error('Error generating signed URLs:', urlError);

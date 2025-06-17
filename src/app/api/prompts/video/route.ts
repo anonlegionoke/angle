@@ -6,12 +6,13 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
     const promptId = searchParams.get('promptId');
+    const projectId = searchParams.get('projectId');
 
-    if (!promptId) {
-      return NextResponse.json({ error: 'Missing promptId' }, { status: 400 });
+    if (!promptId || !projectId) {
+      return NextResponse.json({ error: 'Missing promptId or projectId' }, { status: 400 });
     }
       
-      const videoPath = `${promptId}/video_${promptId}.mp4`;
+      const videoPath = `${projectId}/${promptId}/video_${promptId}.mp4`;
       
       console.log('Video path:', videoPath);
 

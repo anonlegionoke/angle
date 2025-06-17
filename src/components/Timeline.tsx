@@ -28,6 +28,7 @@ interface TimelineProps {
   latestPromptId?: string;
   thumbnails: string[];
   setThumbnails: React.Dispatch<React.SetStateAction<string[]>>;
+  projectId: string;
 }
 
 interface TimeMarker {
@@ -57,7 +58,8 @@ const Timeline: React.FC<TimelineProps> = ({
   videoSrc,
   latestPromptId,
   thumbnails,
-  setThumbnails
+  setThumbnails,
+  projectId
 }) => {
   const [draggingState, setDraggingState] = useState({
     isDragging: false,
@@ -401,7 +403,7 @@ const Timeline: React.FC<TimelineProps> = ({
   
     const fetchThumbnails = async () => {
       try {
-        const res = await fetch(`/api/frames?promptId=${latestPromptId}`);
+        const res = await fetch(`/api/frames?promptId=${latestPromptId}&projectId=${projectId}`);
   
         const { frames } = await res.json();
         if (frames) {

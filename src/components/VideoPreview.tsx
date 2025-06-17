@@ -15,6 +15,7 @@ interface VideoPreviewProps {
   videoTrimEnd: number;
   isLoopingEnabled: boolean;
   isGenerating: boolean;
+  latestPromptId: string;
 }
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({
@@ -29,15 +30,11 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   videoTrimStart,
   videoTrimEnd,
   isLoopingEnabled,
-  isGenerating
+  isGenerating,
+  latestPromptId
 }) => {
-  const [isClient, setIsClient] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
-  
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
   
   useEffect(() => {
     setVideoError(null);
@@ -104,7 +101,19 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     console.error('Video error occurred');
     setVideoError('Failed to load the video. Please check that the file exists and is in a supported format.');
   };
-  
+
+  const [remaining, setRemaining] = useState(180);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemaining(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval); 
+  }, [latestPromptId]);
+
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+
   return (
     <div className="flex flex-col bg-black border-b border-editor-border justify-center h-full">
       <div className="flex justify-center items-center relative overflow-hidden h-full">
@@ -112,61 +121,64 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
               <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
                 <div className="text-white text-center max-w-md">
                   <p>🫕♨️ Prepairing your video...</p>
+                  <br />
+                  <p>Serving in {minutes} min {seconds} sec</p>
                 </div>
               </div>
-            )}
-        {isClient && videoSrc ? (
-          <>
-            <video
-              ref={videoRef}
-              className="max-w-full max-h-full object-contain"
-              src={videoSrc}
-              onLoadedMetadata={onMetadataLoaded}
-              onTimeUpdate={onTimeUpdate}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onError={handleVideoError}
-              controls={false}
-              playsInline
-              preload="auto"
-              autoPlay={false}
-            >
-              <source src={videoSrc} type="video/mp4" />
-            </video>
-            {videoError && (
-              <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
-                <div className="text-red-400 text-center max-w-md">
-                  {/* <p>⚠️ {videoError}</p> */}
-                  {/* <p className="text-sm mt-2">Video path: {videoSrc}</p> */}
-                  <button 
-                    onClick={() => window.open(videoSrc, '_blank')}
-                    className="mt-3 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-white text-sm"
-                  >
-                    Open in new window
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
-            <span className="text-xl mb-4">ANGLE VIDEO</span>
-            <p className="text-gray-400">{isClient && !videoSrc ? 'Enter a prompt to generate a video' : 'Loading...'}</p>
-            <div className="text-sm text-gray-500 mt-4 max-w-md text-center px-4">
-              <p className="mb-2">Generate presentation videos using AI.</p>
-              <p className="mb-4">Try prompts like:</p>
-              <ul className="text-left list-disc pl-8 space-y-1">
-                <li>&#34;Show the Pythagorean theorem&#34;</li>
-                <li>&#34;Visualize an ellipse&#34;</li>
-                <li>&#34;Transform a square to a circle&#34;</li>
-              </ul>
-            </div>
-          </div>
         )}
+        {videoSrc && videoSrc !== 'failed' ? (
+              <>
+                <video
+                  ref={videoRef}
+                  className="max-w-full max-h-full object-contain"
+                  src={videoSrc}
+                  onLoadedMetadata={onMetadataLoaded}
+                  onTimeUpdate={onTimeUpdate}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onError={handleVideoError}
+                  controls={false}
+                  playsInline
+                  preload="auto"
+                  autoPlay={false}
+                >
+                  <source src={videoSrc} type="video/mp4" />
+                </video>
+
+                {videoError && (
+                  <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+                    <div className="text-red-400 text-center max-w-md">
+                      <button 
+                        onClick={() => window.open(videoSrc, '_blank')}
+                        className="mt-3 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-white text-sm"
+                      >
+                        Open in new window
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : videoSrc === 'failed' ? (
+              <p>⚠️ Failed to render. Please try again with a different prompt.</p>
+            ) : (
+              <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
+                <span className="text-xl mb-4">ANGLE VIDEO</span>
+                <p className="text-gray-400">{!videoSrc ? 'Enter a prompt to generate a video' : 'Loading...'}</p>
+                <div className="text-sm text-gray-500 mt-4 max-w-md text-center px-4">
+                  <p className="mb-2">Generate presentation videos using AI.</p>
+                  <p className="mb-4">Try prompts like:</p>
+                  <ul className="text-left list-disc pl-8 space-y-1">
+                    <li>"Show the Pythagorean theorem"</li>
+                    <li>"Visualize an ellipse"</li>
+                    <li>"Transform a square to a circle"</li>
+                  </ul>
+                </div>
+              </div>
+)}
       </div>
       
       {/* Custom video controls */}
-      {isClient && videoSrc && !videoError && (
+      {videoSrc && !videoError && (
         <div className="flex items-center bg-editor-panel p-2 gap-4">
           <button 
             onClick={togglePlayPause}

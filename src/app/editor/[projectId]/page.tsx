@@ -891,6 +891,9 @@ export default function Editor() {
               };
               fetchThumbnails();
             }, 30000);
+          } else if (updated.status === "failed") {
+            setIsGenerating(false);
+            setVideoSrc("failed");
           }
         }
       )
@@ -912,8 +915,8 @@ export default function Editor() {
         const latest = await getLatestProject(currentProjectId!);
         const latestVideo = latest?.videoPath;
         const promptId = latest?.id;
-        if (latestVideo && promptId) {
-          setVideoSrc(latestVideo);
+        if (promptId) {
+          setVideoSrc(latestVideo === undefined ? 'failed' : latestVideo);
           setLatestPromptId(promptId);
         } else {
           console.log('No previous videos found for this project');
@@ -1050,6 +1053,7 @@ export default function Editor() {
               videoTrimEnd={videoTrimEnd}
               isLoopingEnabled={isLoopingEnabled}
               isGenerating={isGenerating}
+              latestPromptId={latestPromptId}
             />
           </div>
         
@@ -1090,6 +1094,7 @@ export default function Editor() {
             latestPromptId={latestPromptId}  
             thumbnails={thumbnails}
             setThumbnails={setThumbnails}  
+            projectId={currentProjectId}  
           />
           </div>
         </div>
