@@ -879,7 +879,7 @@ export default function Editor() {
             setTimeout(() => {
               const fetchThumbnails = async () => {
                 try {
-                  const res = await fetch(`/api/frames?promptId=${latestPromptId}`);
+                  const res = await fetch(`/api/frames?promptId=${latestPromptId}&projectId=${projectId}`);
             
                   const { frames } = await res.json();
                   if (frames) {
