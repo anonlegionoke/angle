@@ -168,9 +168,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
                   <p className="mb-2">Generate presentation videos using AI.</p>
                   <p className="mb-4">Try prompts like:</p>
                   <ul className="text-left list-disc pl-8 space-y-1">
-                    <li>"Show the Pythagorean theorem"</li>
-                    <li>"Visualize an ellipse"</li>
-                    <li>"Transform a square to a circle"</li>
+                    <li>Show the Pythagorean theorem</li>
+                    <li>Visualize an ellipse</li>
+                    <li>Transform a square to a circle</li>
                   </ul>
                 </div>
               </div>
