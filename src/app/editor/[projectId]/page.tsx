@@ -890,7 +890,7 @@ export default function Editor() {
                 }
               };
               fetchThumbnails();
-            }, 30000);
+            }, 15000);
           } else if (updated.status === "failed") {
             setIsGenerating(false);
             setVideoSrc("failed");

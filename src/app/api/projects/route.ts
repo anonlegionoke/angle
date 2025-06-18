@@ -120,18 +120,40 @@ export async function DELETE(request: Request) {
         }
 
         // Delete frames
-        const framePaths = prompts.map(prompt => `${prompt.project_id}/${prompt.prompt_id}/`);
-        const { error: framesDeleteError } = await supabase
-          .storage
-          .from(process.env.NEXT_PUBLIC_SUPABASE_FRAMES_BUCKET_NAME!)
-          .remove(framePaths);
+        for (const prompt of prompts) {
+          const prefix = `${prompt.project_id}/${prompt.prompt_id}/`;
+          const { data: files, error: listError } = await supabase
+            .storage
+            .from(process.env.NEXT_PUBLIC_SUPABASE_FRAMES_BUCKET_NAME!)
+            .list(prefix, { limit: 1000 });
         
-        if (framesDeleteError) {
-          console.error('Error deleting project frames:', framesDeleteError);
-        }
+          if (listError) {
+            console.error(`Error listing files for ${prefix}:`, listError);
+            continue;
+          }
+        
+          const regex = new RegExp(`^thumb_${prompt.prompt_id}_(0[1-9]|1[0-9]|20)\\.jpg$`);
+        
+          const filesToDelete = files
+            ?.filter(file => regex.test(file.name))
+            .map(file => `${prefix}${file.name}`) ?? [];
+        
+          if (filesToDelete.length > 0) {
+            console.log(`Deleting ${filesToDelete.length} JPGs for ${prefix}`, filesToDelete);
+        
+            const { error: deleteError } = await supabase
+              .storage
+              .from(process.env.NEXT_PUBLIC_SUPABASE_FRAMES_BUCKET_NAME!)
+              .remove(filesToDelete);
+        
+            if (deleteError) {
+              console.error(`Error deleting frames for ${prefix}:`, deleteError);
+            }
+          }
+        }             
 
         // Delete code files
-        const codePaths = prompts.map(prompt => `${prompt.project_id}/${prompt.prompt_id}/`);
+        const codePaths = prompts.map(prompt => `${prompt.project_id}/${prompt.prompt_id}/code_${prompt.prompt_id}.py`);
         const { error: codeDeleteError } = await supabase
           .storage
           .from(process.env.NEXT_PUBLIC_SUPABASE_CODE_BUCKET_NAME!)

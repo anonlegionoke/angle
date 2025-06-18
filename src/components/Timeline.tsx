@@ -415,7 +415,7 @@ const Timeline: React.FC<TimelineProps> = ({
     };
   
     fetchThumbnails();
-  }, [videoSrc, latestPromptId]);
+  }, [videoSrc]);
 
   return (
     <div className="flex-1 flex flex-col p-4 min-h-[300px] bg-editor-bg select-none">
