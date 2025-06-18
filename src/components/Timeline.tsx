@@ -484,15 +484,15 @@ const Timeline: React.FC<TimelineProps> = ({
               >
                 Go to Start
               </button>
-              <button 
+              {/* <button 
                 onClick={seekToVideoEnd}
                 className="text-xs bg-editor-panel text-white border border-editor-border px-2 py-1 rounded hover:bg-editor-highlight cursor-pointer"
               >
                 Go to End
-              </button>
+              </button> */}
             </div>
           </div>
-          <div className="flex h-12 bg-editor-panel border border-editor-border rounded">
+          <div className="flex h-12 bg-editor-panel border border-editor-border rounded mt-1">
             <div className="w-[120px] flex items-center justify-center bg-editor-panel border-r border-editor-border text-sm">
               Video
             </div>
@@ -514,8 +514,8 @@ const Timeline: React.FC<TimelineProps> = ({
               <div 
                 className="absolute h-[80%] top-[10%] bg-editor-highlight rounded group cursor-move select-none overflow-hidden"
                 style={{ 
-                  left: videoClipStartPosition, 
-                  width: videoClipWidth,
+                  left: '0%', 
+                  width: '100%',
                   transformOrigin: 'left'
                 }}
               >
@@ -526,7 +526,7 @@ const Timeline: React.FC<TimelineProps> = ({
                       <div
                         key={index}
                         className="h-[35px] flex-shrink-0 border-2 border-editor-border bg-black/60 rounded overflow-hidden flex items-center justify-center"
-                        style={{ width: `${100 / thumbnails.length}%` }}
+                        style={{ width: `${92 / thumbnails.length}%` }}
                       >
                         <img
                           src={thumbnail}
@@ -539,23 +539,25 @@ const Timeline: React.FC<TimelineProps> = ({
 
                 {/* Trim handles */}
                 <div 
-                  className="absolute left-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none" 
+                  className="absolute left-0 top-0 h-full w-2.5 bg-blue-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none rounded-md"  
+                  style={{ left: videoClipStartPosition }}
                   onMouseDown={handleVideoStartTrim}
                   onDoubleClick={seekToVideoStart}
                   title="Drag to adjust start point | Double-click to seek"
                 >
-                  <div className="h-10 w-1 bg-white"></div>
+                  <div className="h-6 w-0.5 bg-white rounded-md"></div>
                   <div className="absolute -left-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center select-none">
                     {formatTime(videoTrimStart)}
                   </div>
                 </div>
                 <div 
-                  className="absolute right-0 top-0 h-full w-4 bg-blue-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none" 
+                  className="absolute right-0 top-0 h-full w-2.5 bg-blue-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none rounded-md" 
+                  style={{ left: `calc(${videoClipStartPosition} + ${videoClipWidth} - 10px)` }}
                   onMouseDown={handleVideoEndTrim}
                   onDoubleClick={seekToVideoEnd}
                   title="Drag to adjust end point | Double-click to seek"
                 >
-                  <div className="h-10 w-1 bg-white"></div>
+                  <div className="h-6 w-0.5 bg-white rounded-md"></div>
                   <div className="absolute -right-1 text-xs text-white opacity-0 group-hover:opacity-100 whitespace-nowrap transform -rotate-90 origin-center select-none">
                     {formatTime(videoTrimEnd)}
                   </div>
