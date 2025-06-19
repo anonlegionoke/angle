@@ -52,7 +52,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       id: '1',
       text: "What would you like to visualize today?",
       isUser: false,
-      timestamp: new Date(),
       status: 'sent'
     };
     
@@ -328,8 +327,24 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                 {message.isUser ? 'You' : 'Angle'}
                 {message.timestamp && (
                   <span className="text-xs ml-2 text-white/50">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+                  {(() => {
+                    const timestamp = message.timestamp;
+                    const now = new Date();
+                    const isToday =
+                      timestamp.getDate() === now.getDate() &&
+                      timestamp.getMonth() === now.getMonth() &&
+                      timestamp.getFullYear() === now.getFullYear();
+                
+                    return isToday
+                      ? timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : timestamp.toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        });
+                  })()}
+                </span>                
                 )}
               </div>
               <div className={message.status === 'error' ? 'text-red-400' : ''}>
