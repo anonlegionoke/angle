@@ -988,9 +988,9 @@ export default function Editor() {
   return (
     <div className="flex flex-col h-screen bg-editor-bg text-white font-mono">
       <LoadingOverlay isLoading={isLoading} message={loadingMessage} />
-      <header className="p-2 text-left border-b border-editor-border relative">
-        <h1 className="text-xl cursor-pointer" onClick={() => setShowDarkIcon(false)}>
-          <span className="mr-2">
+      <header className="p-1 text-left border-b border-editor-border relative">
+        <div className='flex justify-between'>
+        <h1 className="text-sm space-x-1 cursor-pointer" onClick={() => setShowDarkIcon(false)}>
             <AnimatePresence mode="wait">
               {currentProjectId && showDarkIcon ? (
                 <motion.img
@@ -1021,18 +1021,18 @@ export default function Editor() {
                   }}
                 />
               )}
-            </AnimatePresence>
-          </span>
-          Angle - AI Video Maker
-        </h1>
-        {currentProjectId && (
-          <p className="text-sm text-gray-400 mt-1">Project: {currentProjectId}</p>
-        )}
-        
-        <button 
+              </AnimatePresence>
+              <p className='inline'>
+              Angle - AI Animation Studio
+              </p>
+          </h1>
+          {currentProjectId && (
+          <p className="text-xs text-gray-400 text-center mt-2.5">{currentProjectId}</p>
+          )}
+          <button 
           onClick={handleExitProject}
           disabled={isExiting}
-          className="absolute right-4 top-4 bg-red-700 hover:bg-red-600 transition-colors text-white px-3 py-1 rounded text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          className="bg-red-700 hover:bg-red-600 transition-colors text-white rounded text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center h-6 px-2 mt-1.5"
         >
           {isExiting ? (
             <>
@@ -1043,6 +1043,7 @@ export default function Editor() {
             'Exit Project'
           )}
         </button>
+          </div>
       </header>
 
       <main className="flex flex-1 overflow-hidden">
