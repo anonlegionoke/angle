@@ -51,21 +51,22 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     const video = videoRef.current;
     if (!video) return;
     
-    if (video.currentTime < videoTrimStart) {
-      video.currentTime = videoTrimStart;
-    }
-    
     const handleTimeUpdate = () => {
-      if (video.currentTime >= videoTrimEnd) {
-        if (isLoopingEnabled) {
+      if (!video.paused) {
+        if (video.currentTime < videoTrimStart) {
           video.currentTime = videoTrimStart;
-          if (isPlaying) {
-            video.play().catch(err => console.error('Error playing video:', err));
+        }
+        if (video.currentTime >= videoTrimEnd) {
+          if (isLoopingEnabled) {
+            video.currentTime = videoTrimStart;
+            if (isPlaying) {
+              video.play().catch(err => console.error('Error playing video:', err));
+            }
+          } else {
+            video.pause();
+            setIsPlaying(false);
+            video.currentTime = videoTrimStart;
           }
-        } else {
-          video.pause();
-          setIsPlaying(false);
-          video.currentTime = videoTrimStart;
         }
       }
     };

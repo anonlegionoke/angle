@@ -539,7 +539,7 @@ const Timeline: React.FC<TimelineProps> = ({
 
                 {/* Trim handles */}
                 <div 
-                  className="absolute left-0 top-0 h-full w-2.5 bg-blue-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none rounded-md"  
+                  className="absolute left-0 top-0 h-full w-2.5 bg-blue-500 bg-opacity-70 cursor-e-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none rounded-sm"  
                   style={{ left: videoClipStartPosition }}
                   onMouseDown={handleVideoStartTrim}
                   onDoubleClick={seekToVideoStart}
@@ -551,7 +551,7 @@ const Timeline: React.FC<TimelineProps> = ({
                   </div>
                 </div>
                 <div 
-                  className="absolute right-0 top-0 h-full w-2.5 bg-blue-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none rounded-md" 
+                  className="absolute right-0 top-0 h-full w-2.5 bg-blue-500 bg-opacity-70 cursor-w-resize hover:bg-opacity-100 flex items-center justify-center group transition-all duration-150 select-none rounded-sm" 
                   style={{ left: `calc(${videoClipStartPosition} + ${videoClipWidth} - 10px)` }}
                   onMouseDown={handleVideoEndTrim}
                   onDoubleClick={seekToVideoEnd}

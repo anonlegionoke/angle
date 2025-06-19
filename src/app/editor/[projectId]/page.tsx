@@ -289,12 +289,22 @@ export default function Editor() {
     if (videoRef.current) {
       const newCurrentTime = videoRef.current.currentTime;
       setCurrentTime(newCurrentTime);
-      
-      if (newCurrentTime >= videoTrimEnd) {
-        stopAllSyncedAudio();
-        return;
+
+      if (!videoRef.current.paused) {
+        if (newCurrentTime < videoTrimStart) {
+          videoRef.current.currentTime = videoTrimStart;
+          setCurrentTime(videoTrimStart);
+          stopAllSyncedAudio();
+          return;
+        }
+        if (newCurrentTime >= videoTrimEnd) {
+          videoRef.current.currentTime = videoTrimEnd;
+          setCurrentTime(videoTrimEnd);
+          stopAllSyncedAudio();
+          return;
+        }
       }
-      
+
       if (audioClips && audioClips.length > 0) {
         audioClips.forEach(clip => {
           const clipEndTime = clip.startTime + clip.duration;
