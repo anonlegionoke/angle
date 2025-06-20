@@ -62,7 +62,7 @@ const sharedPromptRequirements = `Important rules:
 12. First displaying text will be in the center when center is free, when new text comes, if there is space, display both in single line but with space justificaton between other wise dispaly below it
 13. Make sure the code is following strict type rules of manim
 14. Return complete ERROR FREE code
-15. PYTHON CODE SHOULD CLEAN, AND HIGH QUALITY like 3blue1brown
+15. PYTHON CODE SHOULD CLEAN, AND HIGH QUALITY, with no errors
 16. USE LATEST MANIM CODE PRACTICES
 
 Return ONLY the complete, updated Python code that fulfills these requirements.`;
