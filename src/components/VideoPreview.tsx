@@ -110,7 +110,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       setRemaining(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval); 
-  }, [latestPromptId]);
+  }, [latestPromptId, videoSrc]);
 
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;

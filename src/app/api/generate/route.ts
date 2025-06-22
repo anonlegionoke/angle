@@ -64,6 +64,7 @@ const sharedPromptRequirements = `Important rules:
 14. Return complete ERROR FREE code
 15. PYTHON CODE SHOULD CLEAN, AND HIGH QUALITY, with no errors
 16. USE LATEST MANIM CODE PRACTICES
+17. Use MANIM VECTORS and MANIM NATIVE functions
 
 Return ONLY the complete, updated Python code that fulfills these requirements.`;
 
