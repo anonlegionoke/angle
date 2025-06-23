@@ -70,6 +70,8 @@ The render engine is maintained as a separate repository. You can find it here: 
 - Node.js (v18 or higher)
 - Python 3.7+
 - Manim community edition
+- FFmpeg
+- Supabase
 
 ## 📄 License
 
