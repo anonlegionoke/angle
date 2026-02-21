@@ -14,7 +14,7 @@
     "@supabase/supabase-js": "^2.49.4",
     "@types/uuid": "^10.0.0",
     "framer-motion": "^12.12.1",
-    "next": "15.3.1",
+    "next": "15.3.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "uuid": "^11.1.0"
