@@ -1,6 +1,7 @@
 'use client'
 
 import { login, signup } from './actions'
+import Link from 'next/link'
 import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { useEffect, useState } from 'react'
@@ -72,7 +73,13 @@ export default function LoginPage() {
   }, [formState])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-gray-900 relative">
+      <Link href="/" className="absolute top-6 left-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back
+      </Link>
       <div className="w-full max-w-md rounded-xl bg-gray-800 p-8 shadow-lg border border-gray-700">
       <h1 className="text-2xl text-center font-bold mb-7 relative overflow-hidden">
         <div className="inline-flex items-center">
