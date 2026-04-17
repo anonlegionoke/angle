@@ -1,3 +1,4 @@
+@import url('https://cdn.jsdelivr.net/npm/@fontsource/cascadia-code@latest/400.css');
 @import "tailwindcss";
 
 :root {
@@ -19,11 +20,9 @@
 body {
   background: var(--editor-bg);
   color: var(--foreground);
-  font-family: 'Courier New', monospace;
+  font-family: 'Cascadia Code', monospace;
   margin: 0;
   padding: 0;
-  height: 100vh;
-  overflow: hidden;
 }
 
 ::-webkit-scrollbar {
