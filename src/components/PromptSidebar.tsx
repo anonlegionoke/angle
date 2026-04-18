@@ -85,7 +85,17 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
             });
             
             if (prompt.llmRes) {
-              const llmRes = JSON.parse(prompt.llmRes);
+              let llmRes: any = {};
+              if (typeof prompt.llmRes === 'object') {
+                llmRes = prompt.llmRes;
+              } else if (typeof prompt.llmRes === 'string') {
+                try {
+                  llmRes = JSON.parse(prompt.llmRes);
+                } catch (e) {
+                  console.error('Failed to parse llmRes:', e);
+                }
+              }
+              
               if (llmRes.error) {
                 messages.push({
                   id: `error-${prompt.id}`,

@@ -35,22 +35,22 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
-  
+
   useEffect(() => {
     setVideoError(null);
   }, [videoSrc]);
-  
+
   useEffect(() => {
     if (videoRef.current) {
       videoRef.current.volume = volume;
       videoRef.current.muted = isMuted;
     }
   }, [volume, isMuted, videoRef]);
-  
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    
+
     const handleTimeUpdate = () => {
       if (!video.paused) {
         if (video.currentTime < videoTrimStart) {
@@ -70,17 +70,17 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
         }
       }
     };
-    
+
     video.addEventListener('timeupdate', handleTimeUpdate);
-    
+
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
     };
   }, [videoRef, videoTrimStart, videoTrimEnd, isLoopingEnabled, isPlaying]);
-  
+
   const togglePlayPause = () => {
     if (!videoRef.current) return;
-    
+
     if (isPlaying) {
       videoRef.current.pause();
     } else {
@@ -89,118 +89,210 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
         setVideoError('Failed to play video. The video might be corrupted or in an unsupported format.');
       });
     }
-    
+
     setIsPlaying(!isPlaying);
   };
-  
+
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     onVolumeChange(newVolume);
   };
-  
+
   const handleVideoError = () => {
     console.error('Video error occurred');
     setVideoError('Failed to load the video. Please check that the file exists and is in a supported format.');
   };
 
-  const [remaining, setRemaining] = useState(240);
+  const [remaining, setRemaining] = useState(180);
+  const prevIsGenerating = React.useRef(isGenerating);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRemaining(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(interval); 
-  }, [latestPromptId, videoSrc]);
+    if (prevIsGenerating.current && !isGenerating) {
+      if (typeof window !== 'undefined') {
+        // Notification API
+        if ('Notification' in window) {
+          if (Notification.permission === 'granted') {
+            new Notification('Angle - Video Ready', {
+              body: 'Your video has finished rendering!',
+              icon: '/angle-glow-icon.png'
+            });
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => {
+              if (p === 'granted') {
+                new Notification('Angle - Video Ready', {
+                  body: 'Your video has finished rendering!',
+                  icon: '/angle-glow-icon.png'
+                });
+              }
+            });
+          }
+        }
+
+        // Gentle chime notification via Web Audio API
+        try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5 note
+          oscillator.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
+
+          gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+          gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+
+          oscillator.start();
+          oscillator.stop(audioCtx.currentTime + 0.5);
+        } catch (e) {
+          console.error('Audio notification failed:', e);
+        }
+      }
+    }
+    prevIsGenerating.current = isGenerating;
+  }, [isGenerating]);
+
+  useEffect(() => {
+    if (isGenerating) {
+      setRemaining(180);
+    }
+  }, [isGenerating, latestPromptId]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isGenerating) {
+      interval = setInterval(() => {
+        setRemaining(prev => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isGenerating]);
 
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
 
+  const radius = 100;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (remaining / 180) * circumference;
+
   return (
     <div className="flex flex-col bg-black border-b border-editor-border justify-center h-full">
       <div className="flex justify-center items-center relative overflow-hidden h-full">
-      {isGenerating && (
-              <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
-                <div className="text-white text-center max-w-md">
-                  <p>🫕♨️ Prepairing your video...</p>
-                  <br />
-                  <p>Serving in {minutes} min {seconds} sec</p>
+        {isGenerating && (
+          <div className="absolute inset-0 z-10 bg-black/85 flex items-center justify-center p-4">
+            <div className="flex flex-col items-center text-white text-center max-w-lg">
+              <div className="relative flex items-center justify-center w-80 h-80 mb-0">
+                <svg className="transform -rotate-90 w-80 h-80 box-border">
+                  <circle
+                    cx="160"
+                    cy="160"
+                    r={radius}
+                    stroke="currentColor"
+                    strokeWidth="14"
+                    fill="transparent"
+                    className="text-gray-800"
+                  />
+                  <circle
+                    cx="160"
+                    cy="160"
+                    r={radius}
+                    stroke="currentColor"
+                    strokeWidth="14"
+                    fill="transparent"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    className="text-blue-500 transition-all duration-1000 ease-linear"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-5xl font-mono font-bold tracking-tighter">
+                    {minutes}:{seconds.toString().padStart(2, '0')}
+                  </span>
                 </div>
               </div>
+              <p className="text-2xl font-medium text-blue-100">🧑‍🍳 Cooking your video...</p>
+              <p className="text-gray-300 text-lg mt-2 max-w-[350px]">Will be serving soon!</p>
+            </div>
+          </div>
         )}
         {videoSrc && videoSrc !== 'failed' ? (
-              <>
-                <video
-                  ref={videoRef}
-                  className="max-w-full max-h-full object-contain"
-                  src={videoSrc}
-                  onLoadedMetadata={onMetadataLoaded}
-                  onTimeUpdate={onTimeUpdate}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onError={handleVideoError}
-                  controls={false}
-                  playsInline
-                  preload="auto"
-                  autoPlay={false}
-                >
-                  <source src={videoSrc} type="video/mp4" />
-                </video>
+          <>
+            <video
+              ref={videoRef}
+              className="max-w-full max-h-full object-contain"
+              src={videoSrc}
+              onLoadedMetadata={onMetadataLoaded}
+              onTimeUpdate={onTimeUpdate}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onError={handleVideoError}
+              controls={false}
+              playsInline
+              preload="auto"
+              autoPlay={false}
+            >
+              <source src={videoSrc} type="video/mp4" />
+            </video>
 
-                {videoError && (
-                  <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
-                    <div className="text-red-400 text-center max-w-md">
-                      <button 
-                        onClick={() => window.open(videoSrc, '_blank')}
-                        className="mt-3 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-white text-sm"
-                      >
-                        Open in new window
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : videoSrc === 'failed' ? (
-              <p>⚠️ Failed to render. Please try again with a different prompt.</p>
-            ) : (
-              <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
-                <span className="text-xl mb-4">ANGLE VIDEO</span>
-                <p className="text-gray-400">{!videoSrc ? 'Enter a prompt to generate a video' : 'Loading...'}</p>
-                <div className="text-sm text-gray-500 mt-4 max-w-md text-center px-4">
-                  <p className="mb-2">Generate presentation videos using AI.</p>
-                  <p className="mb-4">Try prompts like:</p>
-                  <ul className="text-left list-disc pl-8 space-y-1">
-                    <li>Show the Pythagorean theorem</li>
-                    <li>Visualize an ellipse</li>
-                    <li>Transform a square to a circle</li>
-                  </ul>
+            {videoError && (
+              <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+                <div className="text-red-400 text-center max-w-md">
+                  <button
+                    onClick={() => window.open(videoSrc, '_blank')}
+                    className="mt-3 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-white text-sm"
+                  >
+                    Open in new window
+                  </button>
                 </div>
               </div>
-)}
+            )}
+          </>
+        ) : videoSrc === 'failed' ? (
+          <p>⚠️ Failed to render. Please try again with a different prompt.</p>
+        ) : (
+          <div className="flex flex-col items-center justify-center w-full bg-editor-panel rounded">
+            <span className="text-xl mb-4">ANGLE VIDEO</span>
+            <p className="text-gray-400">{!videoSrc ? 'Enter a prompt to generate a video' : 'Loading...'}</p>
+            <div className="text-sm text-gray-500 mt-4 max-w-md text-center px-4">
+              <p className="mb-2">Generate presentation videos using AI.</p>
+              <p className="mb-4">Try prompts like:</p>
+              <ul className="text-left list-disc pl-8 space-y-1">
+                <li>Show the Pythagorean theorem</li>
+                <li>Visualize an ellipse</li>
+                <li>Transform a square to a circle</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
-      
+
       {/* Custom video controls */}
       {videoSrc && !videoError && (
         <div className="flex items-center bg-editor-panel p-2 gap-4">
-          <button 
+          <button
             onClick={togglePlayPause}
             className="w-8 h-8 flex items-center justify-center bg-editor-highlight rounded hover:bg-blue-700 transition-colors"
           >
             {isPlaying ? (
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
+                <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z" />
               </svg>
             ) : (
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
               </svg>
             )}
           </button>
-          
+
           <div className="flex items-center gap-4 ml-auto">
             {/* Loop toggle button */}
             <div className="flex items-center gap-1">
               <span className="text-xs text-gray-300">Loop:</span>
-              <button 
+              <button
                 className={`px-2 py-1 text-xs rounded ${isLoopingEnabled ? 'bg-blue-600 text-white' : 'bg-editor-panel text-gray-300 border border-editor-border'}`}
                 title={isLoopingEnabled ? 'Disable loop playback' : 'Enable loop playback'}
                 onClick={() => {
@@ -211,31 +303,31 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
                 {isLoopingEnabled ? 'ON' : 'OFF'}
               </button>
             </div>
-            
+
             {/* Volume controls */}
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={onMuteToggle}
                 className="w-8 h-8 flex items-center justify-center bg-editor-panel rounded hover:bg-editor-highlight transition-colors"
               >
                 {isMuted ? (
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06zm7.137 2.096a.5.5 0 0 1 0 .708L12.207 8l1.647 1.646a.5.5 0 0 1-.708.708L11.5 8.707l-1.646 1.647a.5.5 0 0 1-.708-.708L10.793 8 9.146 6.354a.5.5 0 1 1 .708-.708L11.5 7.293l1.646-1.647a.5.5 0 0 1 .708 0z"/>
+                    <path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06zm7.137 2.096a.5.5 0 0 1 0 .708L12.207 8l1.647 1.646a.5.5 0 0 1-.708.708L11.5 8.707l-1.646 1.647a.5.5 0 0 1-.708-.708L10.793 8 9.146 6.354a.5.5 0 1 1 .708-.708L11.5 7.293l1.646-1.647a.5.5 0 0 1 .708 0z" />
                   </svg>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
-                    <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
-                    <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
+                    <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z" />
+                    <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z" />
+                    <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z" />
                   </svg>
                 )}
               </button>
-              <input 
-                type="range" 
-                min="0" 
-                max="1" 
-                step="0.01" 
-                value={volume} 
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volume}
                 onChange={handleVolumeChange}
                 className="w-24 accent-white"
                 disabled={isMuted}
