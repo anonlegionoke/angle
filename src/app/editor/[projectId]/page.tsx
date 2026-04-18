@@ -420,6 +420,7 @@ export default function Editor() {
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('ended', handleEnded);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioClips]);
   
   const handleScrub = (newTime: number) => {
@@ -912,6 +913,7 @@ export default function Editor() {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latestPromptId, supabase]);  
     
   useEffect(() => {

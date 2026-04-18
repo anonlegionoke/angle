@@ -638,6 +638,7 @@ export default function PublicLanding() {
       {/* Navbar */}
       <nav className="landing-nav">
         <div className="landing-logo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/angle-glow-icon_light.png" alt="Angle" />
           <span>Angle</span>
         </div>

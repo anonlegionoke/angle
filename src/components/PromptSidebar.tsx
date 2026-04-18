@@ -85,6 +85,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
             });
             
             if (prompt.llmRes) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               let llmRes: any = {};
               if (typeof prompt.llmRes === 'object') {
                 llmRes = prompt.llmRes;

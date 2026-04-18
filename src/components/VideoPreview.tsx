@@ -130,6 +130,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 
         // Gentle chime notification via Web Audio API
         try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
           const oscillator = audioCtx.createOscillator();
           const gainNode = audioCtx.createGain();
