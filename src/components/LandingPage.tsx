@@ -199,6 +199,7 @@ export default function LandingPage() {
               damping: 12
             }}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/angle-glow-icon_light.png" alt="<" className="inline-block h-16 w-16 mr-2 mb-2" />
           </motion.span>
           <motion.span 

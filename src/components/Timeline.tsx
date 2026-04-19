@@ -415,6 +415,7 @@ const Timeline: React.FC<TimelineProps> = ({
     };
   
     fetchThumbnails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoSrc]);
 
   return (
@@ -528,8 +529,10 @@ const Timeline: React.FC<TimelineProps> = ({
                         className="h-[35px] flex-shrink-0 border-2 border-editor-border bg-black/60 rounded overflow-hidden flex items-center justify-center"
                         style={{ width: `${92 / thumbnails.length}%` }}
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={thumbnail}
+                          alt={`Thumbnail ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
                       </div>

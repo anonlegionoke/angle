@@ -84,6 +84,7 @@ export default function LoginPage() {
       <h1 className="text-2xl text-center font-bold mb-7 relative overflow-hidden">
         <div className="inline-flex items-center">
           <span className="inline-block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/angle-glow-icon_light.png" alt="<" className="inline-block h-12 w-12 mr-2" />
           </span>
             <span className="inline-block text-3xl">Angle</span>

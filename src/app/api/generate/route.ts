@@ -4,6 +4,35 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@/utils/supabase/server';
 import { generateProjectId } from '@/components/LandingPage';
 import { getCodeUrl } from '@/lib/projectUtils';
+import { MANIM_FEW_SHOT_EXAMPLES, validateManimCode, formatValidationErrors } from '@/lib/manimReference';
+
+/**
+ * Safely extracts the code string from llm_res, which may be:
+ * - A JSON object like { code: "..." } (if column is jsonb and stored correctly)
+ * - A JSON string like '{"code":"..."}' (if column is text or was double-stringified)
+ */
+function extractCodeFromLlmRes(llmRes: unknown): string {
+  if (!llmRes) return '';
+  
+  // Already a parsed object with .code
+  if (typeof llmRes === 'object' && llmRes !== null && 'code' in llmRes) {
+    return (llmRes as { code: string }).code || '';
+  }
+  
+  // It's a string — try to parse it as JSON
+  if (typeof llmRes === 'string') {
+    try {
+      const parsed = JSON.parse(llmRes);
+      if (parsed && typeof parsed === 'object' && 'code' in parsed) {
+        return parsed.code || '';
+      }
+    } catch {
+      // Not valid JSON, return empty
+    }
+  }
+  
+  return '';
+}
 
 async function getProjectChatLog(projectId: string) {
   try {
@@ -26,18 +55,17 @@ async function getProjectChatLog(projectId: string) {
     
     const prompts = promptsData.map(prompt => prompt.usr_msg);
     
+    // Find the latest code from the most recent prompt that has one
     let latestCode = '';
     for (const prompt of promptsData) {
-      try {
-        const llmResponse = prompt.llm_res ?? prompt.llm_res;
-        if (llmResponse && llmResponse.code) {
-          latestCode = llmResponse.code;
-          break;
-        }
-      } catch (e) {
-        console.error('Error parsing llm_res JSON:', e);
+      const code = extractCodeFromLlmRes(prompt.llm_res);
+      if (code) {
+        latestCode = code;
+        break;
       }
     }
+
+    console.log(`[context] projectId=${projectId}, prompts=${prompts.length}, hasCode=${!!latestCode}, codeLength=${latestCode.length}`);
     
     return { prompts, code: latestCode };
   } catch (error) {
@@ -46,54 +74,65 @@ async function getProjectChatLog(projectId: string) {
   }
 }
 
-const sharedPromptRequirements = `Important rules:
-1. Keep the same scene name (GeneratedScene)
-2. Maintain the overall structure but add or modify animations as needed
-3. Keep all previous animations
-4. Add new animations without removing old ones
-5. Remove previous animation elements ONLY IF user asks
-6. Return ONLY the complete, updated code - no explanations or markdown
-7. First display title if exists and if there is contents inside it, move the title up and
-   display explanations below
-8. Make sure NO OVERLAP BETWEEN TEXTS
-9. Whenever there is an example showing, make sure it takes center stage in the scene
-10. Make sure the returning python code is type-safe and high quality with no errors
-11. When explaining an example, remove the first main title
-12. First displaying text will be in the center when center is free, when new text comes, if there is space, display both in single line but with space justificaton between other wise dispaly below it
-13. Make sure the code is following strict type rules of manim
-14. Return complete ERROR FREE code
-15. PYTHON CODE SHOULD CLEAN, AND HIGH QUALITY, with no errors
-16. USE LATEST MANIM CODE PRACTICES
-17. Use MANIM VECTORS and MANIM NATIVE functions
+const codeStyleRules = `
+Rules for writing Manim code:
+1. Scene class MUST be named GeneratedScene
+2. Return ONLY Python code — no explanations, no markdown fences
+3. ALWAYS use keyword arguments for constructors (e.g., Circle(radius=1.5), NOT Circle(1.5))
+4. Make sure NO OVERLAP BETWEEN TEXTS — use .next_to() with buff spacing
+5. Center content when there is space available
+6. Use .set_color() after creation when unsure if constructor accepts color=
+7. Code class: use code_string=, never code=. Use .scale() for sizing, never font_size=`;
 
-Return ONLY the complete, updated Python code that fulfills these requirements.`;
+const newAnimationPrompt = (userPrompt: string) => `You generate Manim Community v0.19+ Python code.
+Study the examples below and follow the EXACT same patterns. Do NOT guess constructor arguments.
 
-const newAnimationPrompt = (userPrompt: string) => `You are a Python Manim animation expert. Your task is to create a Manim animation.
+${MANIM_FEW_SHOT_EXAMPLES}
 
-NEW REQUEST: "${userPrompt}"
+${codeStyleRules}
 
-${sharedPromptRequirements}
+REQUEST: "${userPrompt}"
 
-Return the complete Python code:`;
+Return ONLY the complete Python code.`;
 
-const extendAnimationPrompt = (userPrompt: string, prevPrompts: string[], currentCode: string) => `You are a Python Manim animation expert. Your task is to modify existing code to implement a new animation request.
+const extendAnimationPrompt = (userPrompt: string, prevPrompts: string[], currentCode: string) => `You MODIFY existing Manim code. You must KEEP ALL existing code and ADD to it.
 
-Previous sequence of prompts: "${prevPrompts.join('" -> "')}"
+Reference examples for correct syntax (do NOT copy these scenes, only use for syntax reference):
+${MANIM_FEW_SHOT_EXAMPLES}
 
-Current Python Manim code:
+${codeStyleRules}
+
+═══════════════════════════════════════════════
+THE CODE BELOW IS THE CURRENT ANIMATION. YOU MUST KEEP IT ALL.
+═══════════════════════════════════════════════
+
+Previous user prompts that built this code: "${prevPrompts.join('" -> "')}"
+
+Current working code that you MUST preserve:
 \`\`\`python
 ${currentCode}
 \`\`\`
 
-READ current Python Manim code, to understand where we stand, and improve this current code, and DON'T start code from scratch
-
+═══════════════════════════════════════════════
 NEW REQUEST: "${userPrompt}"
+═══════════════════════════════════════════════
 
-Continue the animation by modifying the existing code to implement this new request. The modified code should build upon the previous animation, not start from scratch.
+IMPORTANT INSTRUCTIONS:
+- You MUST keep ALL existing code from the construct() method above
+- ADD the new request ON TOP of the existing animations
+- Do NOT delete or replace any existing self.play() calls
+- Do NOT start from scratch — the current code is the foundation
+- Return the FULL updated Python code with both old and new content
 
-${sharedPromptRequirements}
+Return ONLY the complete Python code:`;
 
-Return the complete, modified Python code:`;
+/** Max number of self-correction attempts when validation finds issues */
+const MAX_FIX_ATTEMPTS = 2;
+
+function extractCode(text: string): string {
+  const match = text.match(/```(?:python)?\n([\s\S]*?)```/) || [];
+  return match[1]?.trim() || text.trim();
+}
 
 const getGeminiCode = async (prompt: string, projectId: string) => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -110,10 +149,44 @@ const getGeminiCode = async (prompt: string, projectId: string) => {
     fullPrompt = newAnimationPrompt(prompt);
   }
 
-  const result = await model.generateContent(fullPrompt);
-  const text = result.response.text();
-  const match = text.match(/```(?:python)?\n([\s\S]*?)```/) || [];
-  return match[1]?.trim() || text.trim();
+  // ── initial generation ──
+  let result = await model.generateContent(fullPrompt);
+  let code = extractCode(result.response.text());
+
+  // ── validate & self-correct loop ──
+  for (let attempt = 0; attempt < MAX_FIX_ATTEMPTS; attempt++) {
+    const errors = validateManimCode(code);
+    if (errors.length === 0) break; // code is clean
+
+    console.warn(`[manim-validator] Attempt ${attempt + 1}: Found ${errors.length} issue(s), requesting fix...`);
+    
+    const fixPrompt = `Fix this Manim code. It has errors that will crash the renderer.
+
+\`\`\`python
+${code}
+\`\`\`
+
+${formatValidationErrors(errors)}
+
+IMPORTANT: ALWAYS use keyword arguments for geometry constructors.
+✅ Circle(radius=1.5) ❌ Circle(1.5)
+✅ Rectangle(width=4, height=2) ❌ Rectangle(4, 2)
+✅ AnnularSector(inner_radius=0.5, outer_radius=1.5, angle=PI/3)
+
+Fix ALL issues. Return ONLY the corrected Python code, no explanations.`;
+
+    result = await model.generateContent(fixPrompt);
+    code = extractCode(result.response.text());
+  }
+
+  // Log any remaining issues as warnings (don't block)
+  const remainingErrors = validateManimCode(code);
+  if (remainingErrors.length > 0) {
+    console.warn(`[manim-validator] ${remainingErrors.length} issue(s) remain after ${MAX_FIX_ATTEMPTS} fix attempts:`,
+      remainingErrors.map(e => e.message));
+  }
+
+  return code;
 };
 
 export async function POST(req: NextRequest) {
@@ -190,7 +263,7 @@ export async function POST(req: NextRequest) {
         prompt_id: id,
         project_id: currentProjectId,
         usr_msg: prompt,
-        llm_res: JSON.stringify({ code }),
+        llm_res: { code },
       });
 
     if (promptInsertError) {
