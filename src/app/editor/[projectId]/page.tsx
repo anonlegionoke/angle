@@ -69,11 +69,23 @@ export default function Editor() {
   const [showDarkIcon, setShowDarkIcon] = useState(false);
   
   const [isExiting, setIsExiting] = useState<boolean>(false);
+  const [projectName, setProjectName] = useState<string>('Angle - AI Animation Studio');
+  const [isEditingName, setIsEditingName] = useState<boolean>(false);
   
   useEffect(() => {
     console.log('App initialized, ready for video generation');
     
     if (typeof window !== 'undefined') {
+      const savedName = localStorage.getItem(`angle_project_name_${currentProjectId}`);
+      if (savedName) {
+        setProjectName(savedName);
+      } else if (currentProjectId) {
+        const namePart = currentProjectId.split('_')[2];
+        if (namePart) {
+          setProjectName(namePart.charAt(0).toUpperCase() + namePart.slice(1));
+        }
+      }
+
       const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY);
       if (savedWidth) {
         const parsedWidth = parseInt(savedWidth, 10);
@@ -988,18 +1000,18 @@ export default function Editor() {
 
 
   return (
-    <div className="flex flex-col h-screen bg-editor-bg text-white font-mono">
+    <div className="flex flex-col h-screen bg-editor-bg text-white font-mono px-2 sm:px-4 lg:px-0">
       <LoadingOverlay isLoading={isLoading} message={loadingMessage} />
       <header className="p-1 text-left border-b border-editor-border relative">
-        <div className='flex justify-between'>
-        <h1 className="text-sm space-x-1 cursor-pointer" onClick={() => setShowDarkIcon(false)}>
+        <div className='flex justify-between items-center'>
+        <h1 className="text-sm space-x-1 cursor-pointer flex items-center" onClick={() => setShowDarkIcon(false)}>
             <AnimatePresence mode="wait">
               {currentProjectId && showDarkIcon ? (
                 <motion.img
                   key="dark"
                   src="/angle-glow-icon.png"
                   alt="<"
-                  className="inline-block h-8 w-8 mb-1"
+                  className="inline-block h-8 w-8"
                   initial={{ y: -20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ 
@@ -1013,7 +1025,7 @@ export default function Editor() {
                   key="light"
                   src="/angle-glow-icon_light.png"
                   alt="<"
-                  className="inline-block h-8 w-8 mb-1"
+                  className="inline-block h-8 w-8"
                   initial={{ y: -20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ 
@@ -1024,17 +1036,56 @@ export default function Editor() {
                 />
               )}
               </AnimatePresence>
-              <p className='inline'>
+              <p className='inline ml-2'>
               Angle - AI Animation Studio
               </p>
           </h1>
           {currentProjectId && (
-          <p className="text-xs text-gray-400 text-center mt-2.5">{currentProjectId}</p>
+            <div className="flex flex-col items-center justify-center relative left-[-20px]">
+              {isEditingName ? (
+                <input
+                  type="text"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  onBlur={() => {
+                    setIsEditingName(false);
+                    if (projectName.trim() !== '') {
+                      localStorage.setItem(`angle_project_name_${currentProjectId}`, projectName.trim());
+                      setProjectName(projectName.trim());
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setIsEditingName(false);
+                      if (projectName.trim() !== '') {
+                        localStorage.setItem(`angle_project_name_${currentProjectId}`, projectName.trim());
+                        setProjectName(projectName.trim());
+                      }
+                    } else if (e.key === 'Escape') {
+                      setIsEditingName(false);
+                      const savedName = localStorage.getItem(`angle_project_name_${currentProjectId}`);
+                      if (savedName) setProjectName(savedName);
+                    }
+                  }}
+                  className="bg-gray-800 text-white px-2 h-7 rounded border border-blue-500 focus:outline-none w-64 text-sm text-center font-semibold"
+                  autoFocus
+                />
+              ) : (
+                <p 
+                  className='text-sm font-semibold cursor-text hover:text-blue-400 transition-colors border border-transparent hover:border-b-blue-400 text-center w-64 h-7 flex items-center justify-center truncate' 
+                  onClick={() => setIsEditingName(true)}
+                  title="Click to edit project name"
+                >
+                  {projectName || 'Untitled Project'}
+                </p>
+              )}
+              <p className="text-[10px] text-gray-500 mt-0.5">{currentProjectId}</p>
+            </div>
           )}
           <button 
           onClick={handleExitProject}
           disabled={isExiting}
-          className="bg-red-700 hover:bg-red-600 transition-colors text-white rounded text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center h-6 px-2 mt-1.5"
+          className="bg-red-700 hover:bg-red-600 transition-colors text-white rounded text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center h-6 px-2"
         >
           {isExiting ? (
             <>

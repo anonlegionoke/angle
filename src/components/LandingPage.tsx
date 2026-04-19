@@ -89,6 +89,10 @@ export default function LandingPage() {
   };
 
   const getProjectName = (projectId: string) => {
+    if (typeof window !== 'undefined') {
+      const savedName = localStorage.getItem(`angle_project_name_${projectId}`);
+      if (savedName) return savedName;
+    }
     const namePart = projectId.split('_')[2] || '';
     return namePart.charAt(0).toUpperCase() + namePart.slice(1);
   };
@@ -163,7 +167,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-editor-bg text-white overflow-y-auto max-h-screen pt-4 relative">
+    <div className="min-h-screen flex flex-col items-center bg-editor-bg text-white overflow-y-auto max-h-screen pt-4 relative px-4 lg:px-0">
       <div className="absolute top-4 right-4 flex flex-col items-end">
         {userEmail && (
           <div className="text-gray-300 text-xs mb-2">{userEmail}</div>

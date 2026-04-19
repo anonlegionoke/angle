@@ -6,10 +6,19 @@ import { useRouter } from "next/navigation";
 export default function PublicLanding() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleStart = () => {
+    if (window.innerWidth < 1024) {
+      setShowWarning(true);
+    } else {
+      router.push("/login");
+    }
+  };
 
   return (
     <div className="landing-root">
@@ -629,6 +638,43 @@ export default function PublicLanding() {
           opacity: 1;
           transform: translateY(0);
         }
+
+        /* ───── Modal ───── */
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.8);
+          backdrop-filter: blur(4px);
+          z-index: 999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+        }
+        .modal-content {
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 32px;
+          max-width: 420px;
+          text-align: center;
+          box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+        }
+        .modal-content h3 {
+          margin: 0 0 16px;
+          font-size: 20px;
+        }
+        .modal-content p {
+          margin: 0 0 24px;
+          color: var(--text-muted);
+          font-size: 15px;
+          line-height: 1.6;
+        }
+        .modal-actions {
+          display: flex;
+          gap: 12px;
+          justify-content: center;
+        }
       `}</style>
 
       {/* Background effects */}
@@ -646,7 +692,7 @@ export default function PublicLanding() {
           <button className="btn-ghost" onClick={() => router.push("/login")}>
             Log in
           </button>
-          <button className="btn-primary" onClick={() => router.push("/login")}>
+          <button className="btn-primary" onClick={handleStart}>
             Get Started
           </button>
         </div>
@@ -661,10 +707,10 @@ export default function PublicLanding() {
         <p className="hero-subtitle">
           Angle is an AI-powered studio for creating educational animations
           and explainer videos — think 3Blue1Brown-style visuals, generated
-          from your script in minutes.
+          from your prompts in minutes.
         </p>
         <div className="hero-cta">
-          <button className="btn-hero" onClick={() => router.push("/login")}>
+          <button className="btn-hero" onClick={handleStart}>
             Start Creating
           </button>
           <button
@@ -749,26 +795,26 @@ export default function PublicLanding() {
         <div className="features-grid">
           <div className={`feature-card ${mounted ? "fade-in visible" : "fade-in"}`}>
             <div className="feature-icon feature-icon-blue">🪄</div>
-            <h3>AI Lesson Scripting</h3>
+            <h3>AI Code Generation</h3>
             <p>
-              Describe a concept and let AI structure it into a clear,
-              engaging lesson with scene breakdowns and narration cues.
+              Describe your scene and let AI instantly generate the Manim code 
+              for your animations, ready to be rendered into video.
             </p>
           </div>
           <div className={`feature-card ${mounted ? "fade-in visible" : "fade-in"}`} style={{ transitionDelay: "0.1s" }}>
             <div className="feature-icon feature-icon-purple">🎬</div>
             <h3>Visual Timeline Editor</h3>
             <p>
-              Arrange, trim, and layer your scenes on a professional timeline
-              with drag-and-drop ease.
+              Arrange multiple layers of audio, trim content, and synchronize 
+              with your single master video track on a professional timeline.
             </p>
           </div>
           <div className={`feature-card ${mounted ? "fade-in visible" : "fade-in"}`} style={{ transitionDelay: "0.2s" }}>
             <div className="feature-icon feature-icon-green">🎤</div>
             <h3>Narration & Audio</h3>
             <p>
-              Generate natural-sounding voiceovers or record your own. Layer
-              narration over your animations seamlessly.
+              Upload your own music or record your voiceover. Layer audio 
+              over your animations seamlessly.
             </p>
           </div>
           <div className={`feature-card ${mounted ? "fade-in visible" : "fade-in"}`} style={{ transitionDelay: "0.3s" }}>
@@ -776,15 +822,15 @@ export default function PublicLanding() {
             <h3>Animated Visuals</h3>
             <p>
               Generate clean, math-style animations, diagrams, and
-              transitions that bring abstract concepts to life.
+              transitions that bring abstracts concepts to life.
             </p>
           </div>
           <div className={`feature-card ${mounted ? "fade-in visible" : "fade-in"}`} style={{ transitionDelay: "0.4s" }}>
             <div className="feature-icon feature-icon-amber">⚡</div>
             <h3>Instant Export</h3>
             <p>
-              Export your finished lesson in HD. Download it or share
-              directly — ready for YouTube, class, or a slide deck.
+              Export your finished lesson in HD. Download and share
+              anywhere — ready for YouTube, class, or a slide deck.
             </p>
           </div>
           <div className={`feature-card ${mounted ? "fade-in visible" : "fade-in"}`} style={{ transitionDelay: "0.5s" }}>
@@ -806,10 +852,10 @@ export default function PublicLanding() {
           <div className="step-row">
             <div className="step-number">1</div>
             <div className="step-content">
-              <h3>Describe your concept</h3>
+              <h3>Prompt your scene</h3>
               <p>
-                Type a topic or paste a script. Angle&apos;s AI breaks it down into
-                scenes with visuals, narration, and timing.
+                Describe the exact animation you want. Angle&apos;s AI instantly
+                generates the Manim code ready to be rendered.
               </p>
             </div>
           </div>
@@ -818,8 +864,8 @@ export default function PublicLanding() {
             <div className="step-content">
               <h3>Edit on the timeline</h3>
               <p>
-                Fine-tune every scene in the visual editor. Adjust timing, swap
-                visuals, add voiceovers, and rearrange the flow.
+                Fine-tune your project in the visual editor. Adjust timing, add
+                multiple layers of audio, and synchronize with your video.
               </p>
             </div>
           </div>
@@ -844,7 +890,7 @@ export default function PublicLanding() {
             Join educators and creators using Angle to turn complex ideas into
             clear, animated explainers — in minutes, not hours.
           </p>
-          <button className="btn-hero" onClick={() => router.push("/login")}>
+          <button className="btn-hero" onClick={handleStart}>
             Get Started
           </button>
         </div>
@@ -854,6 +900,33 @@ export default function PublicLanding() {
       <footer className="landing-footer">
         © {new Date().getFullYear()} Angle. AI-powered animation studio.
       </footer>
+
+      {/* Warning Modal for Mobile */}
+      {showWarning && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Desktop Recommended</h3>
+            <p>
+              For the best experience while editing and rendering animations, 
+              we strongly recommend using a desktop or larger screen.
+            </p>
+            <div className="modal-actions">
+              <button 
+                className="btn-primary" 
+                onClick={() => setShowWarning(false)}
+              >
+                Go Back
+              </button>
+              <button 
+                className="btn-ghost" 
+                onClick={() => router.push("/login")}
+              >
+                Continue Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
