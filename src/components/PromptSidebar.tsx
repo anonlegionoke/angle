@@ -15,6 +15,7 @@ interface ChatMessage {
   isUser: boolean;
   timestamp?: Date;
   status?: 'sending' | 'sent' | 'error';
+  originalPrompt?: string;
 }
 
 interface SuggestionPrompt {
@@ -103,7 +104,8 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                   text: `Error: ${llmRes.error}`,
                   isUser: false,
                   timestamp: new Date(prompt.timestamp),
-                  status: 'error'
+                  status: 'error',
+                  originalPrompt: prompt.usrMsg
                 });
               } 
               else if (llmRes.code) {
@@ -164,10 +166,11 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     }
   }, [chatMessages]);
 
-  const handleSubmit = async () => {
-    if (!prompt.trim() || isGenerating) return;
+  const handleSubmit = async (overridePrompt?: string) => {
+    const textToSubmit = typeof overridePrompt === 'string' ? overridePrompt : prompt;
+    if (!textToSubmit.trim() || isGenerating) return;
 
-    const promptText = prompt.trim();
+    const promptText = textToSubmit.trim();
     
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -286,7 +289,8 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
         text: `Error: ${errorMsg}`,
         isUser: false,
         timestamp: new Date(),
-        status: 'error'
+        status: 'error',
+        originalPrompt: promptText
       };
       setChatMessages(prev => [...prev, errorMessage]);
     }
@@ -358,7 +362,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                 </span>                
                 )}
               </div>
-              <div className={message.status === 'error' ? 'text-red-400' : ''}>
+              <div className={message.status === 'error' ? 'text-red-400 flex flex-col' : ''}>
                 {message.status === 'sending' ? (
                   <div className="flex items-center">
                     <span>{message.text}</span>
@@ -374,8 +378,21 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                       <code>{message.text.replace(/```python\n|```/g, '')}</code>
                     </pre>
                   ) : (
-                    message.text
+                    <span>{message.text}</span>
                   )
+                )}
+                {message.status === 'error' && message.originalPrompt && (
+                  <button 
+                    onClick={() => handleSubmit(message.originalPrompt)}
+                    disabled={isGenerating}
+                    className="self-start text-xs bg-red-900/30 border border-red-800 hover:bg-red-900/60 text-red-200 px-3 py-1.5 rounded flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-3"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                      <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                      <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                    Retry Prompt
+                  </button>
                 )}
               </div>
             </div>
@@ -415,7 +432,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
             disabled={isGenerating}
           />
           <button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={!prompt.trim() || isGenerating}
             className={`absolute bottom-3 right-3 rounded-full w-8 h-8 flex items-center justify-center transition-colors ${
               !prompt.trim() || isGenerating
