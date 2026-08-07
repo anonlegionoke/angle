@@ -53,7 +53,7 @@ async function getProjectChatLog(projectId: string) {
       return { prompts: [], code: '' };
     }
     
-    const prompts = promptsData.map(prompt => prompt.usr_msg);
+    const prompts = promptsData.map(prompt => prompt.usr_msg).reverse();
     
     // Find the latest code from the most recent prompt that has one
     let latestCode = '';
@@ -82,7 +82,8 @@ Rules for writing Manim code:
 4. Make sure NO OVERLAP BETWEEN TEXTS — use .next_to() with buff spacing
 5. Center content when there is space available
 6. Use .set_color() after creation when unsure if constructor accepts color=
-7. Code class: use code_string=, never code=. Use .scale() for sizing, never font_size=`;
+7. Code class: use code_string=, never code=. Use .scale() for sizing, never font_size=
+8. You MUST include exactly one line of comment at the very top of your Python code, starting with '# ', that briefly describes the animation you just created or modified (e.g., '# Background turned to white.').`;
 
 const newAnimationPrompt = (userPrompt: string) => `You generate Manim Community v0.19+ Python code.
 Study the examples below and follow the EXACT same patterns. Do NOT guess constructor arguments.

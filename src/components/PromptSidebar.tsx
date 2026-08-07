@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import { ChevronDown, ChevronRight, CheckCircle2, Code2, Loader2 } from 'lucide-react';
 
 interface PromptSidebarProps {
   onPromptSubmit: (prompt: string) => void;
@@ -14,7 +15,7 @@ interface ChatMessage {
   text: string;
   isUser: boolean;
   timestamp?: Date;
-  status?: 'sending' | 'sent' | 'error';
+  status?: 'sending' | 'sent' | 'error' | 'generating_video';
   originalPrompt?: string;
 }
 
@@ -29,6 +30,61 @@ export type Prompt = {
   timestamp: Date;
   llmRes: string;
 }
+const CodeMessageViewer: React.FC<{ code: string, isPending?: boolean }> = ({ code, isPending }) => {
+  const [isRevealed, setIsRevealed] = useState(false);
+  
+  let description = '';
+  // Strip the markdown fences first so we can parse the python code
+  let displayCode = code.replace(/```python\n?|```/g, '').trim();
+  
+  const lines = displayCode.split('\n');
+  if (lines.length > 0 && lines[0].trim().startsWith('#')) {
+    description = lines[0].replace(/^#\s*/, '').trim();
+    displayCode = lines.slice(1).join('\n').trim();
+  }
+  
+  if (isPending) {
+    return (
+      <div className="flex flex-col gap-3 w-full">
+        <div className="flex items-center text-gray-300 font-medium">
+          <Loader2 size={16} className="mr-2 animate-spin" />
+          <span>Video is being generated...</span>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex flex-col gap-3 w-full">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center text-blue-400 font-medium">
+          <CheckCircle2 size={16} className="mr-2" />
+          <span>Video generated successfully!</span>
+        </div>
+        {description && (
+          <div className="text-gray-300 text-sm">{description}</div>
+        )}
+      </div>
+      
+      <div>
+        <button 
+          onClick={() => setIsRevealed(!isRevealed)}
+          className="flex items-center gap-1.5 text-xs bg-gray-700 hover:bg-gray-600 px-2.5 py-1.5 rounded transition-colors text-white cursor-pointer w-max"
+        >
+          <Code2 size={14} />
+          <span>{isRevealed ? 'Hide Code' : 'Reveal Code'}</span>
+          {isRevealed ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+      </div>
+
+      {isRevealed && (
+        <pre className="bg-gray-900 p-3 rounded overflow-x-auto mt-1 border border-gray-700 text-xs text-gray-300">
+          <code>{displayCode}</code>
+        </pre>
+      )}
+    </div>
+  );
+};
 
 const PromptSidebar: React.FC<PromptSidebarProps> = ({
   onPromptSubmit,
@@ -40,6 +96,18 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!isGenerating) {
+      setChatMessages(prev => 
+        prev.map(msg => 
+          msg.status === 'generating_video' 
+            ? { ...msg, status: 'sent' } 
+            : msg
+        )
+      );
+    }
+  }, [isGenerating]);
 
   useEffect(() => {
     return () => {
@@ -126,15 +194,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                   status: 'sent'
                 });
                 
-                if (llmRes.videoPath) {
-                  messages.push({
-                    id: `success-${prompt.id}`,
-                    text: "Manim animation generated successfully! You can view it in the preview section.",
-                    isUser: false,
-                    timestamp: new Date(prompt.timestamp),
-                    status: 'sent'
-                  });
-                }
+                // Redundant message removed
               } 
             }
           });
@@ -197,7 +257,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
 
     const processingMessage: ChatMessage = {
       id: (Date.now() + 1).toString(),
-      text: "Generating animation based on your prompt...",
+      text: "Video is generating...",
       isUser: false,
       timestamp: new Date(),
       status: 'sending'
@@ -236,21 +296,12 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
           text: `\`\`\`python\n${data.code}\n\`\`\``,
           isUser: false,
           timestamp: new Date(),
-          status: 'sent'
+          status: data.videoPath === 'pending' ? 'generating_video' : 'sent'
         };
         setChatMessages(prev => [...prev, codeMessage]);
         
         if (data.videoPath === 'pending') {
           onPromptSubmit(data.videoPath);
-          
-          const videoMessage: ChatMessage = {
-            id: (Date.now() + 2).toString(),
-            text: "Animation is being generated! You can view it in the preview section once it's ready.",
-            isUser: false,
-            timestamp: new Date(),
-            status: 'sent'
-          };
-          setChatMessages(prev => [...prev, videoMessage]);
           return;
         }
         
@@ -264,15 +315,6 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       const videoPath = data.videoPath;
       
       onPromptSubmit(videoPath);
-      
-      const successMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: "Manim animation generated successfully! You can now edit it in the timeline.",
-        isUser: false,
-        timestamp: new Date(),
-        status: 'sent'
-      };
-      setChatMessages(prev => [...prev, successMessage]);
       
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -395,9 +437,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
                   </div>
                 ) : (
                   message.text.startsWith('```') ? (
-                    <pre className="bg-gray-800 p-3 rounded overflow-x-auto">
-                      <code>{message.text.replace(/```python\n|```/g, '')}</code>
-                    </pre>
+                    <CodeMessageViewer code={message.text} isPending={message.status === 'generating_video'} />
                   ) : (
                     <span>{message.text}</span>
                   )
