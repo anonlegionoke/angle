@@ -39,6 +39,15 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
   const [prompt, setPrompt] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (chatMessages && chatMessages[chatMessages.length - 1]?.status === 'sending' || prompt || chatMessages?.length > 3) {
@@ -170,6 +179,11 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
     const textToSubmit = typeof overridePrompt === 'string' ? overridePrompt : prompt;
     if (!textToSubmit.trim() || isGenerating) return;
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     const promptText = textToSubmit.trim();
     
     const userMessage: ChatMessage = {
@@ -204,6 +218,7 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
           prompt: promptText,
           projectId: projectId
         }),
+        signal: abortControllerRef.current.signal,
       });
       
       const data = await response.json();
@@ -260,6 +275,12 @@ const PromptSidebar: React.FC<PromptSidebarProps> = ({
       setChatMessages(prev => [...prev, successMessage]);
       
     } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Request aborted by user');
+        setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
+        return;
+      }
+
       console.error('Error generating animation:', error);
       
       setChatMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
