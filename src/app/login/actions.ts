@@ -31,10 +31,18 @@ export async function signup(formData: FormData) {
     password: formData.get('password') as string,
   }
 
-  const { error } = await supabase.auth.signUp(data)
+  const { error: signUpError } = await supabase.auth.signUp(data)
 
-  if (error) {
-    return { error: error.message }
+  if (signUpError) {
+    return { error: signUpError.message }
+  }
+
+  // Force sign-in immediately after sign-up to ensure session is active
+  // This helps when Supabase doesn't auto-login after sign-up in some configs
+  const { error: signInError } = await supabase.auth.signInWithPassword(data)
+  
+  if (signInError) {
+    return { error: signInError.message }
   }
 
   revalidatePath('/', 'layout')

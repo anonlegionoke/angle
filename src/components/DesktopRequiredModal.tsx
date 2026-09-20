@@ -29,6 +29,12 @@ export default function DesktopRequiredModal() {
         applyDesktopMode();
       }
     }
+
+    return () => {
+      // Revert viewport back to responsive when leaving the editor
+      const viewports = document.querySelectorAll('meta[name=viewport]');
+      viewports.forEach(v => v.setAttribute('content', 'width=device-width, initial-scale=1'));
+    };
   }, []);
 
   const handleContinueAnyway = () => {
