@@ -168,7 +168,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-editor-bg text-white overflow-y-auto max-h-screen pt-4 relative px-4 lg:px-0">
-      <div className="absolute top-4 right-4 flex flex-col items-end">
+      <div className="absolute top-4 right-4 flex flex-col items-end z-50">
         {userEmail && (
           <div className="text-gray-300 text-xs mb-2">{userEmail}</div>
         )}
@@ -177,7 +177,7 @@ export default function LandingPage() {
             href="https://github.com/anonlegionoke/angle"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-400 hover:text-white transition-colors flex items-center"
+            className="text-gray-400 hover:text-white transition-colors hidden sm:flex items-center"
             title="GitHub Repository"
           >
             <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
@@ -198,7 +198,7 @@ export default function LandingPage() {
           </button>
         </div>
       </div>
-      <div className="text-center my-4">
+      <div className="text-center mt-16 sm:mt-4 mb-4">
       <h1 className="text-5xl font-bold mb-4 relative overflow-hidden">
         <motion.div
           className="inline-flex items-center"
