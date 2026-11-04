@@ -11,6 +11,11 @@
 }
 
 @theme inline {
+  --color-editor-bg: var(--editor-bg);
+  --color-editor-panel: var(--editor-panel);
+  --color-editor-border: var(--editor-border);
+  --color-editor-highlight: var(--editor-highlight);
+  --color-editor-audio: var(--editor-audio);
   --color-background: var(--editor-bg);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
