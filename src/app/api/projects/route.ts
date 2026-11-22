@@ -4,12 +4,26 @@ import { createClient } from '@/utils/supabase/server';
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { projectId } = await request.json();
     
     if (projectId) {
       const { error: createError } = await supabase
       .from('projects')
-      .insert({project_id: projectId})
+      .insert({
+        project_id: projectId,
+        user_id: user.id
+      })
       .select()
       .single();
     
@@ -76,19 +90,31 @@ export async function GET() {
 export async function DELETE(request: Request) {
   try {
     const supabase = await createClient();
-    const { user_id } = await request.json(); 
-    
-    if (!user_id) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
       return NextResponse.json(
-        { error: 'User ID is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const targetUserId = body.user_id || user.id;
+
+    if (targetUserId !== user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
       );
     }
     
     const { data: userProjects, error: projectsError } = await supabase
       .from('projects')
       .select('project_id')
-      .eq('user_id', user_id);
+      .eq('user_id', user.id);
     
     if (projectsError) {
       console.error('Error fetching user projects:', projectsError);
@@ -177,7 +203,7 @@ export async function DELETE(request: Request) {
     const { error: projectDeleteError } = await supabase
       .from('projects')
       .delete()
-      .eq('user_id', user_id);
+      .eq('user_id', user.id);
     
     if (projectDeleteError) {
       console.error('Error deleting projects from database:', projectDeleteError);
@@ -189,7 +215,7 @@ export async function DELETE(request: Request) {
     
     return NextResponse.json({ 
       success: true,
-      message: `Projects and associated data for user ${user_id} have been deleted`
+      message: `Projects and associated data for user ${user.id} have been deleted`
     });
   } catch (error) {
     console.error('Error deleting projects:', error);

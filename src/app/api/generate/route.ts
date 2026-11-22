@@ -197,10 +197,15 @@ export async function POST(req: NextRequest) {
   let currentProjectId = projectId;
   
   if (!projectId && prompt) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     const { data: newProject, error: projectError } = await supabase
       .from('projects')
       .insert({
-        project_id: generateProjectId()  
+        project_id: generateProjectId(),
+        user_id: user?.id,
       })
       .select()
       .single();
