@@ -298,6 +298,14 @@ class GeneratedScene(Scene):
 
 10. Available animations: Create, Write, FadeIn, FadeOut, Transform, ReplacementTransform, GrowArrow, DrawBorderThenFill, Indicate, Circumscribe, Flash, Rotate, MoveAlongPath, AnimationGroup, LaggedStart, Succession.
 
+11. Polygons:
+    - Hexagon, Pentagon, Octagon, Heptagon, Decagon DO NOT EXIST as classes in Manim!
+    - ❌ NEVER use Hexagon(), Pentagon(), Octagon(), etc.
+    - ✅ For a hexagon: RegularPolygon(n=6, radius=1.5)
+    - ✅ For a pentagon: RegularPolygon(n=5, radius=1.5)
+    - ✅ For an octagon: RegularPolygon(n=8, radius=1.5)
+    - RegularPolygon accepts n= and radius= (NEVER side_length=).
+
 === END ===
 `;
 
@@ -455,6 +463,37 @@ const ANTI_PATTERNS: Array<{
     regex: /RoundedRectangle\s*\(\s*\d/,
     message: "RoundedRectangle() called with positional args — use keyword args only",
     fix: "Use RoundedRectangle(corner_radius=..., width=..., height=...)",
+  },
+  // ── Non-existent polygon classes in Manim ──
+  {
+    regex: /\bHexagon\s*\(/,
+    message: "Hexagon is not a class in Manim",
+    fix: "Use RegularPolygon(n=6, radius=1.0) instead of Hexagon()",
+  },
+  {
+    regex: /\bPentagon\s*\(/,
+    message: "Pentagon is not a class in Manim",
+    fix: "Use RegularPolygon(n=5, radius=1.0) instead of Pentagon()",
+  },
+  {
+    regex: /\bOctagon\s*\(/,
+    message: "Octagon is not a class in Manim",
+    fix: "Use RegularPolygon(n=8, radius=1.0) instead of Octagon()",
+  },
+  {
+    regex: /\bHeptagon\s*\(/,
+    message: "Heptagon is not a class in Manim",
+    fix: "Use RegularPolygon(n=7, radius=1.0) instead of Heptagon()",
+  },
+  {
+    regex: /\bDecagon\s*\(/,
+    message: "Decagon is not a class in Manim",
+    fix: "Use RegularPolygon(n=10, radius=1.0) instead of Decagon()",
+  },
+  {
+    regex: /RegularPolygon\s*\([^)]*\bside_length\s*=/,
+    message: "RegularPolygon() does not accept 'side_length=' argument",
+    fix: "Use 'radius=' instead: RegularPolygon(n=6, radius=1.0)",
   },
 ];
 
