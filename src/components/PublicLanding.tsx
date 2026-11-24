@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { DemoVideoPlayer } from "./DemoVideoPlayer";
 
 export default function PublicLanding() {
   const router = useRouter();
@@ -379,15 +380,8 @@ export default function PublicLanding() {
         }
 
         @media (max-width: 768px) {
-          .preview-body {
-            grid-template-columns: 1fr;
-            height: auto;
-          }
-          .preview-sidebar, .preview-props {
-            display: none;
-          }
-          .preview-main {
-            min-height: 260px;
+          .landing-preview {
+            display: none !important;
           }
           .landing-nav {
             padding: 12px 10px;
@@ -518,7 +512,7 @@ export default function PublicLanding() {
         .landing-steps {
           position: relative;
           z-index: 1;
-          max-width: 900px;
+          max-width: 1040px;
           margin: 0 auto;
           padding: 40px 24px 100px;
         }
@@ -536,18 +530,29 @@ export default function PublicLanding() {
           font-size: clamp(28px, 4vw, 40px);
           font-weight: 700;
           letter-spacing: -1px;
-          margin: 0 0 60px;
+          margin: 0 0 48px;
         }
-        .steps-list {
+        .steps-content {
           display: flex;
           flex-direction: column;
-          gap: 24px;
+          gap: 48px;
+        }
+        .steps-list {
+          order: 1;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 20px;
+        }
+        .steps-video-wrapper {
+          order: 2;
+          width: 100%;
         }
         .step-row {
           display: flex;
-          align-items: center;
-          gap: 24px;
-          padding: 28px;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 16px;
+          padding: 26px 22px;
           background: var(--surface);
           border: 1px solid var(--border);
           border-radius: 16px;
@@ -556,21 +561,22 @@ export default function PublicLanding() {
         .step-row:hover {
           border-color: #333;
           background: var(--surface-2);
+          transform: translateY(-2px);
         }
         .step-number {
           flex-shrink: 0;
-          width: 48px;
-          height: 48px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
           background: linear-gradient(135deg, #3b82f6, #6366f1);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 20px;
+          font-size: 18px;
           font-weight: 700;
         }
         .step-content h3 {
-          font-size: 18px;
+          font-size: 17px;
           font-weight: 600;
           margin: 0 0 6px;
         }
@@ -580,10 +586,30 @@ export default function PublicLanding() {
           margin: 0;
           line-height: 1.6;
         }
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
+          .steps-content {
+            gap: 32px;
+          }
+          .steps-video-wrapper {
+            order: 1;
+          }
+          .steps-list {
+            order: 2;
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+          .step-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+          }
+        }
+        @media (max-width: 480px) {
           .step-row {
             flex-direction: column;
             text-align: center;
+            align-items: center;
           }
         }
 
@@ -735,7 +761,7 @@ export default function PublicLanding() {
           <button
             className="btn-hero-ghost"
             onClick={() => {
-              const el = document.getElementById("features");
+              const el = document.getElementById("how-it-works");
               el?.scrollIntoView({ behavior: "smooth" });
             }}
           >
@@ -864,39 +890,45 @@ export default function PublicLanding() {
       </section>
 
       {/* How it works */}
-      <section className="landing-steps">
+      <section className="landing-steps" id="how-it-works">
         <div className="steps-label">How It Works</div>
         <h2 className="steps-title">From concept to lesson in three steps</h2>
-        <div className="steps-list">
-          <div className="step-row">
-            <div className="step-number">1</div>
-            <div className="step-content">
-              <h3>Prompt your scene</h3>
-              <p>
-                Describe the exact animation you want. Angle&apos;s AI instantly
-                generates the Manim code ready to be rendered.
-              </p>
+
+        <div className="steps-content">
+          <div className="steps-list">
+            <div className="step-row">
+              <div className="step-number">1</div>
+              <div className="step-content">
+                <h3>Prompt your scene</h3>
+                <p>
+                  Describe the exact animation you want. Angle&apos;s AI instantly
+                  generates the Manim code ready to be rendered.
+                </p>
+              </div>
+            </div>
+            <div className="step-row">
+              <div className="step-number">2</div>
+              <div className="step-content">
+                <h3>Edit on the timeline</h3>
+                <p>
+                  Fine-tune your project in the visual editor. Adjust timing, add
+                  multiple layers of audio, and synchronize with your video.
+                </p>
+              </div>
+            </div>
+            <div className="step-row">
+              <div className="step-number">3</div>
+              <div className="step-content">
+                <h3>Export and share</h3>
+                <p>
+                  Hit export to render your video in HD and download the file instantly.
+                </p>
+              </div>
             </div>
           </div>
-          <div className="step-row">
-            <div className="step-number">2</div>
-            <div className="step-content">
-              <h3>Edit on the timeline</h3>
-              <p>
-                Fine-tune your project in the visual editor. Adjust timing, add
-                multiple layers of audio, and synchronize with your video.
-              </p>
-            </div>
-          </div>
-          <div className="step-row">
-            <div className="step-number">3</div>
-            <div className="step-content">
-              <h3>Export and share</h3>
-              <p>
-                Hit export to render your video in HD. Download the file or grab
-                a shareable link instantly.
-              </p>
-            </div>
+
+          <div className="steps-video-wrapper">
+            <DemoVideoPlayer />
           </div>
         </div>
       </section>
